@@ -1,0 +1,49 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "users": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || (auth.uid === $uid && newData.exists()))",
+        ".validate": "newData.hasChildren(['uid', 'displayName', 'role']) && newData.child('uid').val() === $uid",
+        "role": {
+          ".validate": "(newData.val() === 'student' || newData.val() === 'admin') && (root.child('users').child(auth.uid).child('role').val() === 'admin' || (!data.exists() && newData.val() === 'student') || (data.exists() && newData.val() === data.val()))"
+        }
+      }
+    },
+    "vocabulary": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+      "$wordId": {
+        ".validate": "newData.hasChildren(['word', 'meaning', 'pos', 'session']) && newData.child('word').isString() && newData.child('meaning').isString() && newData.child('session').isNumber() && (newData.child('pos').val() === 'n' || newData.child('pos').val() === 'v' || newData.child('pos').val() === 'adj' || newData.child('pos').val() === 'adv')"
+      }
+    },
+    "progress": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        ".write": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        "$wordId": {
+          ".validate": "newData.child('uid').val() === $uid && newData.child('wordId').val() === $wordId"
+        }
+      }
+    },
+    "testResults": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        "$resultId": {
+          ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || (auth.uid === $uid && !data.exists() && newData.exists()))",
+          ".validate": "newData.child('uid').val() === $uid && newData.child('score').isNumber() && newData.child('score').val() >= 0 && newData.child('score').val() <= 100"
+        }
+      }
+    },
+    "soloScores": {
+      ".read": "auth != null",
+      ".indexOn": ["score"],
+      "$scoreId": {
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || (!data.exists() && newData.child('uid').val() === auth.uid))",
+        ".validate": "newData.hasChildren(['uid', 'displayName', 'score', 'correct', 'total', 'createdAt']) && newData.child('score').isNumber() && newData.child('correct').isNumber() && newData.child('total').isNumber()"
+      }
+    }
+  }
+}

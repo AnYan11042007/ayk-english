@@ -1,7 +1,8 @@
 import { firebaseReady, functions, fFunctions } from './firebase.js';
+import { isLocalMode } from './store.js';
 
 export async function aiLookup(word,pos){
-  if(!firebaseReady) return demoLookup(word,pos);
+  if(!firebaseReady || isLocalMode()) return demoLookup(word,pos);
   try{
     const callable=fFunctions.httpsCallable(functions,'lookupVocabulary');
     const res=await callable({word,pos});

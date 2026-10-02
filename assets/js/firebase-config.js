@@ -5,6 +5,7 @@ export const firebaseConfig = {
   apiKey: "AIzaSyAQjC7QY4nnx5B4kvpvSavMOjoi2v9tmsU",
   authDomain: "english-ayk.firebaseapp.com",
   projectId: "english-ayk",
+  databaseURL: "https://english-ayk-default-rtdb.asia-southeast1.firebasedatabase.app",
   storageBucket: "english-ayk.firebasestorage.app",
   messagingSenderId: "300549155647",
   appId: "1:300549155647:web:57e906f8b6909cade2018a",

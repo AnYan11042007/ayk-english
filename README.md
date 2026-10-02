@@ -8,14 +8,14 @@ Web học tiếng Anh responsive cho **điện thoại + máy tính**, chạy fr
 - Firebase project: `english-ayk`
 - `assets/js/firebase-config.js` đã có cấu hình web được cung cấp.
 - `.firebaserc` đã chọn project `english-ayk` cho Firebase CLI.
-- Source đã kiểm tra cú pháp JavaScript và JSON. Chưa xác nhận đăng nhập hay ghi dữ liệu thật vì chưa truy cập được Firebase Console.
+- Source đã kiểm tra cú pháp JavaScript và JSON. Chưa xác nhận đăng nhập hay ghi dữ liệu thật: provider đăng nhập và database rules đang chờ chủ project xác nhận áp dụng. Firebase Console đã truy cập được bằng tài khoản chủ project.
 
 Trước khi dùng thật, cần hoàn tất trong Firebase Console:
 
 1. Authentication → Sign-in method → bật Email/Password; bật Google nếu sử dụng.
 2. Authentication → Settings → Authorized domains → thêm `anyan11042007.github.io`.
-3. Firestore Database → Create database → chọn chế độ production. Trong tab Rules, dán nội dung `firestore.rules` rồi Publish; hoặc dùng Firebase CLI như hướng dẫn bên dưới.
-4. Sau khi web hoạt động, đăng ký tài khoản chính, đổi `role` của tài khoản đó thành `admin` trong Firestore rồi nhập từ mẫu.
+3. Realtime Database hiện có: `english-ayk-default-rtdb`, khu vực Singapore. Trong tab Rules, dán nội dung `database.rules.json` rồi Publish; hoặc dùng Firebase CLI như hướng dẫn bên dưới.
+4. Sau khi web hoạt động, đăng ký tài khoản chính, đổi `role` của tài khoản đó thành `admin` trong Realtime Database rồi nhập từ mẫu.
 5. AI tra từ cần triển khai Functions và cấu hình secret riêng theo mục 6; cấu hình web không tự kích hoạt AI.
 
 GitHub Pages: sau khi source có trong nhánh `main`, chọn Settings → Pages → Source: GitHub Actions. Workflow có sẵn trong `.github/workflows/pages.yml`.
@@ -56,7 +56,7 @@ AYK-English/
 ├─ functions/
 │  ├─ index.js
 │  └─ package.json
-├─ firestore.rules
+├─ database.rules.json
 ├─ firebase.json
 ├─ manifest.webmanifest
 ├─ sw.js
@@ -124,9 +124,11 @@ TEN_GITHUB.github.io
 
 ---
 
-# 4. Tạo Firestore Database
+# 4. Kết nối Realtime Database
 
-Firebase Console → **Firestore Database → Create database**.
+Dùng database đã có: `https://english-ayk-default-rtdb.asia-southeast1.firebasedatabase.app`.
+
+`databaseURL` đã được thêm vào cấu hình. Firebase Console → Realtime Database → Rules: áp dụng `database.rules.json`.
 
 Cài Firebase CLI:
 
@@ -139,15 +141,15 @@ firebase use --add
 Chọn đúng project rồi deploy rules:
 
 ```bash
-firebase deploy --only firestore:rules
+firebase deploy --only database
 ```
 
-Các collection web sử dụng:
+Các nhánh dữ liệu web sử dụng:
 
 - `users`
 - `vocabulary`
-- `progress`
-- `testResults`
+- `progress/{uid}/{wordId}`
+- `testResults/{uid}/{resultId}`
 - `soloScores`
 
 ---
@@ -155,8 +157,8 @@ Các collection web sử dụng:
 # 5. Tạo tài khoản Admin
 
 1. Đăng ký một tài khoản trên AYK English.
-2. Vào Firebase Console → Firestore → collection `users`.
-3. Mở document có ID bằng UID tài khoản đó.
+2. Vào Firebase Console → Realtime Database → nhánh `users`.
+3. Mở node có khóa bằng UID tài khoản đó.
 4. Đổi field:
 
 ```text
@@ -173,7 +175,7 @@ role: "admin"
 
 Menu **Admin** sẽ xuất hiện.
 
-Trong Admin có nút **Nhập dữ liệu mẫu** để đẩy 24 từ mẫu vào Firestore.
+Trong Admin có nút **Nhập dữ liệu mẫu** để đẩy 24 từ mẫu vào Realtime Database.
 
 ---
 
@@ -204,7 +206,7 @@ Dán Gemini API key khi CLI hỏi.
 ## 6.4 Deploy
 
 ```bash
-firebase deploy --only functions,firestore:rules
+firebase deploy --only functions,database
 ```
 
 Function dùng region:
@@ -258,11 +260,11 @@ https://TEN_GITHUB.github.io/ayk-english/
 # 8. Kiểm tra sau khi deploy
 
 - Đăng ký tài khoản mới.
-- Kiểm tra Firestore có document trong `users`.
+- Kiểm tra Realtime Database có node trong `users`.
 - Chuyển tài khoản chính thành `admin` trong Firebase Console.
 - Admin → **Nhập dữ liệu mẫu**.
 - Admin → nhập `adventure`, chọn `n`, bấm **AI tra nghĩa + ảnh**.
-- Lưu từ → kiểm tra collection `vocabulary`.
+- Lưu từ → kiểm tra nhánh `vocabulary`.
 - Học một từ → kiểm tra `progress`.
 - Làm kiểm tra → kiểm tra `testResults`.
 - Chơi Solo → kiểm tra `soloScores` và leaderboard.
@@ -270,6 +272,6 @@ https://TEN_GITHUB.github.io/ayk-english/
 ## Ghi chú bảo mật
 
 - Không commit Gemini API key lên GitHub.
-- Firestore Rules đã giới hạn sửa từ vựng cho Admin.
+- Realtime Database Rules đã giới hạn sửa từ vựng cho Admin.
 - Người dùng không thể tự đổi `role` từ `student` thành `admin` qua frontend.
 - AI Function kiểm tra lại quyền Admin ở phía server trước khi gọi Gemini.

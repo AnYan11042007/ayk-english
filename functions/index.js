@@ -1,19 +1,19 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const { initializeApp } = require('firebase-admin/app');
-const { getFirestore } = require('firebase-admin/firestore');
+const { getDatabase } = require('firebase-admin/database');
 const { GoogleGenAI, Type } = require('@google/genai');
 
-initializeApp();
-const db = getFirestore();
+initializeApp({ databaseURL: 'https://english-ayk-default-rtdb.asia-southeast1.firebasedatabase.app' });
+const db = getDatabase();
 const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY');
 
 exports.lookupVocabulary = onCall(
   { region: 'asia-southeast1', secrets: [GEMINI_API_KEY], timeoutSeconds: 30, memory: '256MiB' },
   async (request) => {
     if (!request.auth) throw new HttpsError('unauthenticated', 'Bạn cần đăng nhập.');
-    const userDoc = await db.doc(`users/${request.auth.uid}`).get();
-    if (!userDoc.exists || userDoc.data().role !== 'admin') {
+    const userDoc = await db.ref(`users/${request.auth.uid}`).get();
+    if (!userDoc.exists() || userDoc.val().role !== 'admin') {
       throw new HttpsError('permission-denied', 'Chỉ Admin được dùng AI thêm từ vựng.');
     }
 

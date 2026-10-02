@@ -40,6 +40,7 @@ function wrongWords(){return state.vocab.filter(w=>(state.progress[w.id]?.wrongC
 
 async function bootstrapUser(user){
   state.user=user;
+  store.setStoreUser(user);
   state.profile=await store.ensureUserProfile(user,user.displayName||'');
   state.vocab=await store.getVocabulary();
   state.progress=await store.getProgress(user);
@@ -182,7 +183,7 @@ function renderAdmin(){
 }
 function adminImageHtml(){if(!state.adminImages.length)return '<p class="muted">AI sẽ gợi ý từ khóa và tìm ảnh Wikimedia Commons để bạn duyệt.</p>';return `<div><b>Chọn ảnh minh họa</b><div class="image-results">${state.adminImages.map((im,i)=>`<button type="button" class="image-option ${state.adminSelectedImage===im.url?'selected':''}" data-img="${i}" title="${esc(im.title)}"><img src="${esc(im.url)}" alt=""></button>`).join('')}</div></div>`}
 function bindAdmin(){
-  $('#importStarter').onclick=async()=>{if(!confirm('Nhập/cập nhật 24 từ mẫu vào Firestore?'))return;await store.importStarterVocabulary();await refreshData();toast('Đã nhập dữ liệu mẫu.','success');renderAdmin()};
+  $('#importStarter').onclick=async()=>{if(!confirm('Nhập/cập nhật 24 từ mẫu vào Realtime Database?'))return;await store.importStarterVocabulary();await refreshData();toast('Đã nhập dữ liệu mẫu.','success');renderAdmin()};
   $('#cancelEdit')?.addEventListener('click',()=>{state.adminEdit=null;state.adminImages=[];state.adminSelectedImage='';renderAdmin()});
   $$('[data-edit]').forEach(b=>b.onclick=()=>{state.adminEdit={...state.vocab.find(x=>x.id===b.dataset.edit)};state.adminImages=[];state.adminSelectedImage=state.adminEdit.imageUrl||'';renderAdmin()});
   $$('[data-delete]').forEach(b=>b.onclick=async()=>{const v=state.vocab.find(x=>x.id===b.dataset.delete);if(!confirm(`Xóa từ “${v?.word}”?`))return;await store.deleteVocabulary(b.dataset.delete);await refreshData();toast('Đã xóa từ.','success');renderAdmin()});
@@ -206,13 +207,13 @@ $('#globalSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){state.sear
 // AUTH
 let registerMode=false;
 $('#toggleAuth').onclick=()=>{registerMode=!registerMode;authForm.classList.toggle('register',registerMode);$('#authTitle').textContent=registerMode?'Tạo tài khoản':'Đăng nhập';$('#authSub').textContent=registerMode?'Tạo tài khoản để lưu tiến độ học.':'Tiếp tục hành trình học tiếng Anh của bạn.';$('#authSubmit').textContent=registerMode?'Đăng ký':'Đăng nhập';$('#toggleAuth').textContent=registerMode?'Đăng nhập':'Đăng ký'};
-$('#configNote').textContent=isFirebaseConfigured()?(firebaseReady?'Firebase đã kết nối.':'Có config Firebase nhưng chưa kết nối được.'):'Chưa cấu hình Firebase — nút “Xem bản demo” vẫn dùng đầy đủ dữ liệu mẫu trên máy này.';
+$('#configNote').textContent=isFirebaseConfigured()?(firebaseReady?'Đã cấu hình Firebase Realtime Database.':'Có config Firebase nhưng chưa khởi tạo được.'):'Chưa cấu hình Firebase — nút “Xem bản demo” vẫn dùng đầy đủ dữ liệu mẫu trên máy này.';
 authForm.onsubmit=async e=>{e.preventDefault();if(!firebaseReady)return toast('Chưa cấu hình Firebase. Hãy dùng bản demo hoặc điền firebase-config.js.','error');const email=$('#email').value.trim(),password=$('#password').value,name=$('#displayName').value.trim();try{if(registerMode){const cred=await fAuth.createUserWithEmailAndPassword(auth,email,password);if(name)await fAuth.updateProfile(cred.user,{displayName:name});await store.ensureUserProfile(cred.user,name);toast('Đăng ký thành công.','success')}else await fAuth.signInWithEmailAndPassword(auth,email,password)}catch(err){toast(authError(err.code),'error')}};
 $('#googleLogin').onclick=async()=>{if(!firebaseReady)return toast('Chưa cấu hình Firebase.','error');try{await fAuth.signInWithPopup(auth,new fAuth.GoogleAuthProvider())}catch(err){toast(authError(err.code),'error')}};
-$('#demoBtn').onclick=()=>bootstrapUser({uid:'demo-user',displayName:'Ân Yan Demo',email:'demo@ayk.local',isDemo:true});
+$('#demoBtn').onclick=()=>bootstrapUser({uid:'demo-user',displayName:'Ân Yan Demo',email:'demo@ayk.local',isDemo:true}).catch(err=>toast(err.message,'error'));
 $('#logoutBtn').onclick=async()=>{stopTest();stopSolo();if(firebaseReady&&!state.user?.isDemo)await fAuth.signOut(auth);state.user=null;state.profile=null;appEl.classList.add('hidden');loginScreen.classList.remove('hidden')};
 function authError(code=''){return ({'auth/invalid-credential':'Sai email hoặc mật khẩu.','auth/email-already-in-use':'Email đã được sử dụng.','auth/weak-password':'Mật khẩu quá yếu.','auth/popup-closed-by-user':'Bạn đã đóng cửa sổ Google.'}[code]||`Lỗi đăng nhập: ${code}`)}
-if(firebaseReady)fAuth.onAuthStateChanged(auth,user=>{if(user)bootstrapUser(user);else if(!state.user?.isDemo){appEl.classList.add('hidden');loginScreen.classList.remove('hidden')}});
+if(firebaseReady)fAuth.onAuthStateChanged(auth,user=>{if(user)bootstrapUser(user).catch(err=>{console.error(err);toast('Không tải được dữ liệu Firebase. Kiểm tra quyền database: '+err.message,'error')});else if(!state.user?.isDemo){appEl.classList.add('hidden');loginScreen.classList.remove('hidden')}});
 
 // PWA
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
