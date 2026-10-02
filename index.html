@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b5cff" />
+  <meta name="description" content="AYK English - học, ôn tập, từ vựng theo buổi, bài tập, kiểm tra và solo." />
+  <title>AYK English</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./assets/icons/icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="./assets/css/styles.css" />
+</head>
+<body>
+  <div id="toast" class="toast" aria-live="polite"></div>
+
+  <div id="loginScreen" class="auth-screen">
+    <div class="auth-art">
+      <div class="brand brand-large"><span class="brand-mark">A</span><span>AYK <b>English</b></span></div>
+      <div class="auth-copy">
+        <span class="eyebrow">LEARN • REVIEW • LEVEL UP</span>
+        <h1>Tiếng Anh mỗi ngày,<br><span>tiến bộ rõ ràng.</span></h1>
+        <p>Học theo buổi, ôn từ sai, làm bài, kiểm tra và thử thách solo trên cả điện thoại lẫn máy tính.</p>
+      </div>
+      <div class="floating-card fc-1">🔥 <b>12 ngày</b><span>Chuỗi học</span></div>
+      <div class="floating-card fc-2">🏆 <b>Solo</b><span>Thử thách điểm số</span></div>
+      <div class="floating-card fc-3">📚 <b>Buổi 08</b><span>Daily routines</span></div>
+    </div>
+    <div class="auth-panel">
+      <form id="authForm" class="auth-card">
+        <div class="brand mobile-brand"><span class="brand-mark">A</span><span>AYK <b>English</b></span></div>
+        <h2 id="authTitle">Đăng nhập</h2>
+        <p id="authSub">Tiếp tục hành trình học tiếng Anh của bạn.</p>
+        <label>Họ tên <input id="displayName" type="text" placeholder="Ân Yan" autocomplete="name" /></label>
+        <label>Email <input id="email" type="email" required placeholder="you@example.com" autocomplete="email" /></label>
+        <label>Mật khẩu <input id="password" type="password" required minlength="6" placeholder="Tối thiểu 6 ký tự" autocomplete="current-password" /></label>
+        <button class="btn primary full" type="submit" id="authSubmit">Đăng nhập</button>
+        <button class="btn google full" type="button" id="googleLogin">G Đăng nhập bằng Google</button>
+        <div class="auth-switch">Chưa có tài khoản? <button type="button" class="link-btn" id="toggleAuth">Đăng ký</button></div>
+        <button class="btn ghost full" type="button" id="demoBtn">Xem bản demo ngay</button>
+        <small class="config-note" id="configNote"></small>
+      </form>
+    </div>
+  </div>
+
+  <div id="app" class="app hidden">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand sidebar-brand"><span class="brand-mark">A</span><span>AYK <b>English</b></span></div>
+      <nav id="mainNav" class="nav-list">
+        <button data-view="dashboard" class="nav-item active"><span>⌂</span>Trang chủ</button>
+        <button data-view="learn" class="nav-item"><span>📘</span>Học</button>
+        <button data-view="review" class="nav-item"><span>↻</span>Ôn bài</button>
+        <button data-view="vocabulary" class="nav-item"><span>Aa</span>Từ vựng</button>
+        <button data-view="sessions" class="nav-item"><span>▦</span>Theo buổi</button>
+        <button data-view="exercises" class="nav-item"><span>✎</span>Làm bài tập</button>
+        <button data-view="tests" class="nav-item"><span>▤</span>Kiểm tra</button>
+        <button data-view="solo" class="nav-item"><span>🏆</span>Solo bài</button>
+        <button data-view="admin" id="adminNav" class="nav-item hidden"><span>⚙</span>Admin</button>
+      </nav>
+      <div class="sidebar-progress">
+        <div class="progress-ring small" id="sideProgress"><span>0%</span></div>
+        <div><b>Tiến độ học tập</b><small id="sideProgressText">0 từ đã học</small></div>
+      </div>
+      <button id="logoutBtn" class="nav-item logout"><span>⇥</span>Đăng xuất</button>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="icon-btn menu-btn" id="menuBtn">☰</button>
+        <div class="search-wrap"><span>⌕</span><input id="globalSearch" placeholder="Tìm từ vựng, bài học..." /></div>
+        <div class="top-actions">
+          <button class="icon-btn" id="themeBtn" title="Đổi giao diện">◐</button>
+          <div class="user-chip"><div class="avatar" id="avatar">AY</div><div><small>Xin chào</small><b id="userName">Học viên</b></div></div>
+        </div>
+      </header>
+      <section id="viewRoot" class="view-root"></section>
+    </main>
+
+    <nav class="bottom-nav" id="bottomNav">
+      <button data-view="dashboard" class="active">⌂<small>Trang chủ</small></button>
+      <button data-view="learn">📘<small>Học</small></button>
+      <button data-view="vocabulary">Aa<small>Từ vựng</small></button>
+      <button data-view="tests">▤<small>Kiểm tra</small></button>
+      <button data-view="more">•••<small>Thêm</small></button>
+    </nav>
+  </div>
+
+  <dialog id="modal" class="modal"><div id="modalContent"></div></dialog>
+
+  <script type="module" src="./assets/js/app.js"></script>
+</body>
+</html>

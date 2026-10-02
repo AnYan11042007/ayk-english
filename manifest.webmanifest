@@ -1,0 +1,9 @@
+{
+  "name": "AYK English",
+  "short_name": "AYK English",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f5f8ff",
+  "theme_color": "#0b5cff",
+  "icons": [{"src":"./assets/icons/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}
