@@ -17,24 +17,28 @@
     <div class="auth-art">
       <div class="brand brand-large"><span class="brand-mark">A</span><span>AYK <b>English</b></span></div>
       <div class="auth-copy">
-        <span class="eyebrow">LEARN • REVIEW • LEVEL UP</span>
-        <h1>Tiếng Anh mỗi ngày,<br><span>tiến bộ rõ ràng.</span></h1>
-        <p>Học theo buổi, ôn từ sai, làm bài, kiểm tra và thử thách solo trên cả điện thoại lẫn máy tính.</p>
+        <span class="eyebrow">MỘT CHÚT MỖI NGÀY. MỘT BƯỚC TIẾN XA.</span>
+        <h1>Small steps.<br><span>Big possibilities.</span></h1>
+        <p>Biến tiếng Anh thành thói quen yêu thích của bạn. Học từ mới, ôn điều đã biết và khám phá khả năng của mình.</p>
       </div>
-      <div class="floating-card fc-1">🔥 <b>12 ngày</b><span>Chuỗi học</span></div>
-      <div class="floating-card fc-2">🏆 <b>Solo</b><span>Thử thách điểm số</span></div>
-      <div class="floating-card fc-3">📚 <b>Buổi 08</b><span>Daily routines</span></div>
+      <div class="study-art" aria-label="Thẻ từ vựng minh họa">
+        <div class="art-orbit"></div><div class="art-spark">✦</div>
+        <div class="art-card art-back"><span>YOUR NEXT CHAPTER</span><b>Hello,<br>possibilities.</b></div>
+        <div class="art-card art-front"><span>WORD TO REMEMBER</span><div class="art-word">grow<span>↗</span></div><p>/ɡrəʊ/ · động từ</p><div class="art-line"></div><strong>lớn lên · phát triển</strong><small>“A little practice helps you grow.”</small></div>
+        <div class="art-label">✦ Learn at your own pace</div>
+      </div>
+      <div class="auth-footer">TỪ VỰNG <i>•</i> FLASHCARD <i>•</i> THỬ THÁCH</div>
     </div>
     <div class="auth-panel">
       <form id="authForm" class="auth-card">
         <div class="brand mobile-brand"><span class="brand-mark">A</span><span>AYK <b>English</b></span></div>
-        <h2 id="authTitle">Đăng nhập</h2>
+        <span class="auth-kicker">CHÀO MỪNG ĐẾN AYK</span><h2 id="authTitle">Chào bạn trở lại.</h2>
         <p id="authSub">Tiếp tục hành trình học tiếng Anh của bạn.</p>
         <label>Họ tên <input id="displayName" type="text" placeholder="Ân Yan" autocomplete="name" /></label>
-        <label>Email <input id="email" type="email" required placeholder="you@example.com" autocomplete="email" /></label>
+        <label><span id="identityLabel">Email hoặc tên đăng nhập</span><input id="email" type="text" required placeholder="Email hoặc tên đăng nhập" autocomplete="username" autocapitalize="none" /></label>
         <label>Mật khẩu <input id="password" type="password" required minlength="6" placeholder="Tối thiểu 6 ký tự" autocomplete="current-password" /></label>
         <button class="btn primary full" type="submit" id="authSubmit">Đăng nhập</button>
-        <button class="btn google full" type="button" id="googleLogin">G Đăng nhập bằng Google</button>
+        <div class="auth-divider"><span>hoặc tiếp tục với</span></div><button class="btn google full" type="button" id="googleLogin"><span class="google-letter">G</span> Đăng nhập bằng Google</button>
         <div class="auth-switch">Chưa có tài khoản? <button type="button" class="link-btn" id="toggleAuth">Đăng ký</button></div>
         <button class="btn ghost full" type="button" id="demoBtn">Xem bản demo ngay</button>
         <small class="config-note" id="configNote"></small>
@@ -42,10 +46,23 @@
     </div>
   </div>
 
+  <section id="passwordSetup" class="password-setup hidden">
+    <form id="passwordSetupForm" class="auth-card">
+      <div class="brand"><span class="brand-mark">A</span><span>AYK <b>English</b></span></div>
+      <span class="auth-kicker">CHỈ CÒN MỘT BƯỚC</span><h2>Đặt mật khẩu của bạn.</h2>
+      <p id="setupIdentity">Tạo mật khẩu để lần sau bạn có thể đăng nhập bằng Google hoặc email.</p>
+      <label>Mật khẩu mới<input id="setupPassword" type="password" minlength="6" required autocomplete="new-password" placeholder="Tối thiểu 6 ký tự"></label>
+      <label>Nhập lại mật khẩu<input id="setupConfirm" type="password" minlength="6" required autocomplete="new-password" placeholder="Nhập lại mật khẩu của bạn"></label>
+      <button id="setupSubmit" class="btn primary full" type="submit">Hoàn tất & bắt đầu học →</button>
+      <button id="setupLogout" class="btn ghost full" type="button">Dùng tài khoản khác</button>
+      <small class="setup-note">Thông tin đăng nhập được ghi nhớ trên trình duyệt này.</small>
+    </form>
+  </section>
+
   <div id="app" class="app hidden">
     <aside class="sidebar" id="sidebar">
       <div class="brand sidebar-brand"><span class="brand-mark">A</span><span>AYK <b>English</b></span></div>
-      <nav id="mainNav" class="nav-list">
+      <div class="nav-caption">KHÔNG GIAN HỌC TẬP</div><nav id="mainNav" class="nav-list">
         <button data-view="dashboard" class="nav-item active"><span>⌂</span>Trang chủ</button>
         <button data-view="learn" class="nav-item"><span>📘</span>Học</button>
         <button data-view="review" class="nav-item"><span>↻</span>Ôn bài</button>
@@ -54,7 +71,7 @@
         <button data-view="exercises" class="nav-item"><span>✎</span>Làm bài tập</button>
         <button data-view="tests" class="nav-item"><span>▤</span>Kiểm tra</button>
         <button data-view="solo" class="nav-item"><span>🏆</span>Solo bài</button>
-        <button data-view="admin" id="adminNav" class="nav-item hidden"><span>⚙</span>Admin</button>
+        <button data-view="admin" id="adminNav" class="nav-item hidden"><span>⚙</span>Quản trị</button>
       </nav>
       <div class="sidebar-progress">
         <div class="progress-ring small" id="sideProgress"><span>0%</span></div>
@@ -65,7 +82,7 @@
 
     <main class="main">
       <header class="topbar">
-        <button class="icon-btn menu-btn" id="menuBtn">☰</button>
+        <button class="icon-btn menu-btn" id="menuBtn" aria-label="Mở menu">☰</button>
         <div class="search-wrap"><span>⌕</span><input id="globalSearch" placeholder="Tìm từ vựng, bài học..." /></div>
         <div class="top-actions">
           <button class="icon-btn" id="themeBtn" title="Đổi giao diện">◐</button>

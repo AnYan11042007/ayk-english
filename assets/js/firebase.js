@@ -12,6 +12,7 @@ if (isFirebaseConfigured()) {
     const fnMod = await import('https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js');
     app = appMod.initializeApp(firebaseConfig);
     auth = authMod.getAuth(app);
+    await authMod.setPersistence(auth, authMod.browserLocalPersistence);
     db = dbMod.getDatabase(app, firebaseConfig.databaseURL);
     functions = fnMod.getFunctions(app, FUNCTIONS_REGION);
     fAuth = authMod; fDb = dbMod; fFunctions = fnMod;

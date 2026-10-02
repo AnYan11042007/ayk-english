@@ -1,5 +1,5 @@
 import { firebaseReady, auth, fAuth } from './firebase.js';
-import { isFirebaseConfigured } from './firebase-config.js';
+import { firebaseConfig, isFirebaseConfigured } from './firebase-config.js';
 import * as store from './store.js';
 import { aiLookup, searchCommonsImages } from './ai.js';
 
@@ -12,7 +12,7 @@ const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const state={
   user:null,profile:null,vocab:[],progress:{},testResults:[],leaderboard:[],view:'dashboard',
   session:1,flashIndex:0,flashReveal:false,search:'',pos:'all',
-  exercise:null,test:null,solo:null,adminEdit:null,adminImages:[],adminSelectedImage:''
+  exercise:null,test:null,solo:null,adminEdit:null,adminImages:[],adminSelectedImage:'',adminSearch:'',adminSession:'all'
 };
 
 const loginScreen=$('#loginScreen'), appEl=$('#app'), viewRoot=$('#viewRoot'), authForm=$('#authForm');
@@ -50,7 +50,10 @@ async function bootstrapUser(user){
   $('#userName').textContent=userDisplayName();$('#avatar').textContent=initials(userDisplayName());
   $('#adminNav').classList.toggle('hidden',!isAdmin());
   loginScreen.classList.add('hidden');appEl.classList.remove('hidden');
-  updateSidebarProgress();renderView();
+  state.view=isAdmin()?'admin':'dashboard';
+  document.body.classList.toggle('admin-mode',isAdmin());
+  $('#passwordSetup').classList.add('hidden');
+  updateSidebarProgress();navigate(state.view);
 }
 
 function updateSidebarProgress(){
@@ -86,8 +89,8 @@ function featureCards(){
 function renderDashboard(){
   const p=progressPct(), today=wordsOfSession(state.session).slice(0,4), latest=state.testResults[0];
   viewRoot.innerHTML=`
-    <section class="hero"><div class="hero-copy"><span class="eyebrow">AYK ENGLISH • STUDY DASHBOARD</span><h1>Chào mừng trở lại,<br>${esc(userDisplayName())}! 👋</h1><p>Mỗi ngày một ít: học từ mới, ôn từ khó và thử thách bản thân bằng bài kiểm tra ngắn.</p><div class="hero-badges"><span>🔥 Chuỗi mục tiêu: 12 ngày</span><span>📚 ${state.vocab.length} từ trong thư viện</span><span>🏆 Solo & bảng xếp hạng</span></div></div></section>
-    ${featureCards()}
+    <section class="hero"><div class="hero-copy"><span class="eyebrow">YOUR PERSONAL LEARNING SPACE</span><h1>Hôm nay, mình học<br>điều gì mới? <span class="hero-dot">✦</span></h1><p>Chào ${esc(userDisplayName())}. Dành một chút thời gian cho tiếng Anh — mỗi từ mới là một bước tiến của bạn.</p><button class="btn hero-cta" data-go="learn">Tiếp tục học <span>↗</span></button><div class="hero-badges"><span>✦ Học theo nhịp của bạn</span><span>📚 ${state.vocab.length} từ trong thư viện</span><span>🏆 Solo & bảng xếp hạng</span></div></div><div class="hero-illustration" aria-hidden="true"><div class="hero-mini">TODAY’S MINDSET<b>Keep<br>growing.</b><span>✦</span></div></div></section>
+    <div class="section-heading"><h2>Khám phá góc học tập</h2><span>Chọn cách học bạn yêu thích</span></div>${featureCards()}
     <div class="dashboard-grid">
       <div class="panel wide"><div class="panel-title"><h3>🎯 Tiến độ học tập</h3><button class="link-btn" data-go="vocabulary">Xem từ vựng →</button></div><div class="progress-flex"><div class="progress-ring" style="--p:${p}"><span>${p}%</span></div><div class="stats-row w-full"><div class="stat"><small>Từ đã thuộc</small><strong>${masteredCount()}</strong></div><div class="stat"><small>Tổng từ</small><strong>${state.vocab.length}</strong></div><div class="stat"><small>Buổi học</small><strong>${sessions().length}</strong></div><div class="stat"><small>Bài kiểm tra</small><strong>${state.testResults.length}</strong></div></div></div></div>
       <div class="panel"><div class="panel-title"><h3>⭐ Nhiệm vụ hôm nay</h3><span class="badge">3 mục</span></div><div class="task-list"><div class="task ${masteredCount()>=5?'done':''}">☑ Học ít nhất 5 từ</div><div class="task ${state.testResults.length?'done':''}">☑ Hoàn thành 1 bài kiểm tra</div><div class="task ${state.leaderboard.some(x=>x.uid===state.user.uid)?'done':''}">☑ Chơi Solo 1 lần</div></div></div>
@@ -178,11 +181,22 @@ function leaderboardHtml(){return `<div class="table-scroll"><table class="leade
 
 function renderAdmin(){
   if(!isAdmin()){navigate('dashboard');return}
-  const e=state.adminEdit||{};viewRoot.innerHTML=`${pageTitle('Admin','Quản lý từ vựng và dùng AI hỗ trợ trước khi lưu',`<button class="btn secondary" id="importStarter">Nhập dữ liệu mẫu</button>`)}<div class="admin-grid"><div class="panel"><div class="panel-title"><h3>✨ ${e.id?'Sửa':'Thêm'} từ vựng</h3><span class="badge">AI + ảnh minh họa</span></div><form id="adminForm" class="admin-form"><label>Từ tiếng Anh<input class="form-control" id="aWord" required value="${esc(e.word||'')}"></label><label>Loại từ<select class="form-control" id="aPos"><option>n</option><option ${e.pos==='v'?'selected':''}>v</option><option ${e.pos==='adj'?'selected':''}>adj</option><option ${e.pos==='adv'?'selected':''}>adv</option></select></label><label>Buổi<input class="form-control" id="aSession" type="number" min="1" required value="${esc(e.session||state.session||1)}"></label><label>Chủ đề<input class="form-control" id="aTopic" value="${esc(e.topic||'')}"></label><div class="full-span flex gap-8"><button class="btn secondary" type="button" id="aiBtn">✨ AI tra nghĩa + ảnh</button><span id="aiStatus" class="muted"></span></div><label>Nghĩa tiếng Việt<input class="form-control" id="aMeaning" required value="${esc(e.meaning||'')}"></label><label>IPA<input class="form-control" id="aIpa" value="${esc(e.ipa||'')}"></label><label class="full-span">Ví dụ<input class="form-control" id="aExample" value="${esc(e.example||'')}"></label><label class="full-span">URL ảnh<input class="form-control" id="aImage" value="${esc(e.imageUrl||'')}"></label><div class="full-span" id="imageArea">${adminImageHtml()}</div><div class="full-span flex gap-8"><button class="btn primary" type="submit">${e.id?'Cập nhật':'Lưu từ vựng'}</button>${e.id?`<button class="btn ghost" type="button" id="cancelEdit">Hủy sửa</button>`:''}</div></form></div><div class="panel"><div class="panel-title"><h3>📚 Danh sách từ</h3><span class="badge">${state.vocab.length} từ</span></div><div class="table-scroll" style="max-height:690px"><table class="admin-table"><thead><tr><th>Buổi</th><th>Từ</th><th>Loại</th><th>Nghĩa</th><th></th></tr></thead><tbody>${state.vocab.map(v=>`<tr><td>${v.session}</td><td><b>${esc(v.word)}</b></td><td><span class="pos">${esc(v.pos)}</span></td><td>${esc(v.meaning)}</td><td><button class="link-btn" data-edit="${esc(v.id)}">Sửa</button> <button class="link-btn" style="color:#d33" data-delete="${esc(v.id)}">Xóa</button></td></tr>`).join('')}</tbody></table></div></div></div>`;
+  const e=state.adminEdit||{};viewRoot.innerHTML=`<div class="admin-heading"><div><span class="auth-kicker">AYK / QUẢN TRỊ</span><h1>Không gian quản trị.</h1><p class="muted">Chào ${esc(userDisplayName())}. Cùng xây dựng một thư viện tiếng Anh thật hay.</p></div><div class="flex gap-8"><button class="btn ghost" id="exportVocab">Xuất CSV ↓</button><button class="btn primary" id="importStarter">Nhập 24 từ mẫu</button></div></div><div class="admin-stats"><div><span>THƯ VIỆN TỪ VỰNG</span><strong>${state.vocab.length}<small>từ</small></strong><i>Aa</i></div><div><span>BUỔI HỌC</span><strong>${sessions().length}<small>buổi</small></strong><i>▦</i></div><div><span>CÓ ẢNH MINH HỌA</span><strong>${state.vocab.filter(v=>v.imageUrl).length}<small>từ</small></strong><i>▧</i></div><div><span>CẦN THÊM PHÁT ÂM</span><strong>${state.vocab.filter(v=>!v.ipa).length}<small>từ</small></strong><i>◌</i></div></div><div class="admin-banner"><span>✦</span><div><b>Nội dung tốt, trải nghiệm học tốt.</b><p>Thêm nghĩa, phiên âm và một ví dụ gần gũi cho mỗi từ.</p></div><span class="badge">${state.user?.isDemo?'Bản demo · lưu trên máy':'Quản trị viên'}</span></div><div class="admin-grid"><div class="panel admin-editor"><div class="panel-title"><h3>${e.id?'Sửa':'Thêm'} từ vựng</h3><span class="badge">AI + ảnh minh họa</span></div><form id="adminForm" class="admin-form"><label>Từ tiếng Anh<input class="form-control" id="aWord" required value="${esc(e.word||'')}"></label><label>Loại từ<select class="form-control" id="aPos"><option>n</option><option ${e.pos==='v'?'selected':''}>v</option><option ${e.pos==='adj'?'selected':''}>adj</option><option ${e.pos==='adv'?'selected':''}>adv</option></select></label><label>Buổi<input class="form-control" id="aSession" type="number" min="1" required value="${esc(e.session||state.session||1)}"></label><label>Chủ đề<input class="form-control" id="aTopic" value="${esc(e.topic||'')}"></label><div class="full-span flex gap-8"><button class="btn secondary" type="button" id="aiBtn">✨ AI tra nghĩa + ảnh</button><span id="aiStatus" class="muted"></span></div><label>Nghĩa tiếng Việt<input class="form-control" id="aMeaning" required value="${esc(e.meaning||'')}"></label><label>IPA<input class="form-control" id="aIpa" value="${esc(e.ipa||'')}"></label><label class="full-span">Ví dụ<input class="form-control" id="aExample" value="${esc(e.example||'')}"></label><label class="full-span">URL ảnh<input class="form-control" id="aImage" value="${esc(e.imageUrl||'')}"></label><div class="full-span" id="imageArea">${adminImageHtml()}</div><div class="full-span flex gap-8"><button class="btn primary" type="submit">${e.id?'Cập nhật':'Lưu từ vựng'}</button>${e.id?`<button class="btn ghost" type="button" id="cancelEdit">Hủy sửa</button>`:''}</div></form></div><div class="panel admin-library"><div class="panel-title"><div><h3>Thư viện từ vựng</h3><p class="muted">Tìm, chỉnh sửa và sắp xếp nội dung học.</p></div><span class="badge">${state.vocab.length} từ</span></div><div class="toolbar admin-toolbar"><input class="form-control" id="adminSearch" aria-label="Tìm từ trong quản trị" placeholder="Tìm từ hoặc nghĩa…" value="${esc(state.adminSearch)}"><select class="form-control" id="adminSession" aria-label="Lọc buổi học"><option value="all">Tất cả buổi</option>${sessions().map(n=>`<option value="${n}" ${String(n)===state.adminSession?'selected':''}>Buổi ${n}</option>`).join('')}</select></div><div class="table-scroll" style="max-height:690px"><table class="admin-table"><thead><tr><th>Buổi</th><th>Từ</th><th>Loại</th><th>Nghĩa</th><th>Thao tác</th></tr></thead><tbody>${adminFilteredWords().map(v=>`<tr><td><span class="badge">${v.session}</span></td><td><b>${esc(v.word)}</b></td><td><span class="pos">${esc(v.pos)}</span></td><td>${esc(v.meaning)}</td><td><button class="link-btn" data-edit="${esc(v.id)}">Sửa</button> <button class="link-btn" style="color:#d33" data-delete="${esc(v.id)}">Xóa</button></td></tr>`).join('')||'<tr><td colspan="5"><div class="empty">Chưa có từ phù hợp.</div></td></tr>'}</tbody></table></div></div></div>`;
   bindAdmin();
 }
 function adminImageHtml(){if(!state.adminImages.length)return '<p class="muted">AI sẽ gợi ý từ khóa và tìm ảnh Wikimedia Commons để bạn duyệt.</p>';return `<div><b>Chọn ảnh minh họa</b><div class="image-results">${state.adminImages.map((im,i)=>`<button type="button" class="image-option ${state.adminSelectedImage===im.url?'selected':''}" data-img="${i}" title="${esc(im.title)}"><img src="${esc(im.url)}" alt=""></button>`).join('')}</div></div>`}
+function adminFilteredWords(){return state.vocab.filter(v=>(state.adminSession==='all'||String(v.session)===state.adminSession)&&`${v.word} ${v.meaning} ${v.topic||''}`.toLowerCase().includes(state.adminSearch.toLowerCase()))}
+function exportVocabulary(){
+  const cols=['word','meaning','pos','session','topic','ipa','example','imageUrl'];
+  const quote=v=>'"'+String(v??'').replaceAll('"','""')+'"';
+  const csv='\uFEFF'+[cols,...adminFilteredWords().map(v=>cols.map(k=>v[k]))].map(row=>row.map(quote).join(',')).join('\r\n');
+  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
+  const link=document.createElement('a');link.href=url;link.download='AYK-vocabulary.csv';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
 function bindAdmin(){
+  $('#exportVocab').onclick=exportVocabulary;
+  $('#adminSession').onchange=e=>{state.adminSession=e.target.value;renderAdmin()};
+  $('#adminSearch').oninput=e=>{const start=e.target.selectionStart;state.adminSearch=e.target.value;renderAdmin();$('#adminSearch').focus();$('#adminSearch').setSelectionRange(start,start)};
   $('#importStarter').onclick=async()=>{if(!confirm('Nhập/cập nhật 24 từ mẫu vào Realtime Database?'))return;await store.importStarterVocabulary();await refreshData();toast('Đã nhập dữ liệu mẫu.','success');renderAdmin()};
   $('#cancelEdit')?.addEventListener('click',()=>{state.adminEdit=null;state.adminImages=[];state.adminSelectedImage='';renderAdmin()});
   $$('[data-edit]').forEach(b=>b.onclick=()=>{state.adminEdit={...state.vocab.find(x=>x.id===b.dataset.edit)};state.adminImages=[];state.adminSelectedImage=state.adminEdit.imageUrl||'';renderAdmin()});
@@ -205,15 +219,36 @@ if(localStorage.getItem('ayk_theme')==='dark')document.body.classList.add('dark'
 $('#globalSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){state.search=e.target.value;navigate('vocabulary')}});
 
 // AUTH
-let registerMode=false;
-$('#toggleAuth').onclick=()=>{registerMode=!registerMode;authForm.classList.toggle('register',registerMode);$('#authTitle').textContent=registerMode?'Tạo tài khoản':'Đăng nhập';$('#authSub').textContent=registerMode?'Tạo tài khoản để lưu tiến độ học.':'Tiếp tục hành trình học tiếng Anh của bạn.';$('#authSubmit').textContent=registerMode?'Đăng ký':'Đăng nhập';$('#toggleAuth').textContent=registerMode?'Đăng nhập':'Đăng ký'};
+let registerMode=false,registrationInProgress=false;
+$('#toggleAuth').onclick=()=>{registerMode=!registerMode;authForm.classList.toggle('register',registerMode);$('#authTitle').textContent=registerMode?'Bắt đầu hành trình.':'Chào bạn trở lại.';$('#email').type=registerMode?'email':'text';$('#identityLabel').textContent=registerMode?'Email':'Email hoặc tên đăng nhập';$('#email').placeholder=registerMode?'you@example.com':'Email hoặc tên đăng nhập';$('#authSub').textContent=registerMode?'Tạo tài khoản để lưu tiến độ học.':'Tiếp tục hành trình học tiếng Anh của bạn.';$('#authSubmit').textContent=registerMode?'Đăng ký':'Đăng nhập';$('#toggleAuth').textContent=registerMode?'Đăng nhập':'Đăng ký'};
 $('#configNote').textContent=isFirebaseConfigured()?(firebaseReady?'Đã cấu hình Firebase Realtime Database.':'Có config Firebase nhưng chưa khởi tạo được.'):'Chưa cấu hình Firebase — nút “Xem bản demo” vẫn dùng đầy đủ dữ liệu mẫu trên máy này.';
-authForm.onsubmit=async e=>{e.preventDefault();if(!firebaseReady)return toast('Chưa cấu hình Firebase. Hãy dùng bản demo hoặc điền firebase-config.js.','error');const email=$('#email').value.trim(),password=$('#password').value,name=$('#displayName').value.trim();try{if(registerMode){const cred=await fAuth.createUserWithEmailAndPassword(auth,email,password);if(name)await fAuth.updateProfile(cred.user,{displayName:name});await store.ensureUserProfile(cred.user,name);toast('Đăng ký thành công.','success')}else await fAuth.signInWithEmailAndPassword(auth,email,password)}catch(err){toast(authError(err.code),'error')}};
+authForm.onsubmit=async e=>{e.preventDefault();if(!firebaseReady)return toast('Chưa cấu hình Firebase. Hãy dùng bản demo hoặc điền firebase-config.js.','error');const identity=$('#email').value.trim();const email=!registerMode&&!identity.includes('@')?`${identity.toLowerCase()}@${firebaseConfig.authDomain}`:identity,password=$('#password').value,name=$('#displayName').value.trim();registrationInProgress=registerMode;$('#authSubmit').disabled=true;try{if(registerMode){const cred=await fAuth.createUserWithEmailAndPassword(auth,email,password);if(name)await fAuth.updateProfile(cred.user,{displayName:name});await store.ensureUserProfile(cred.user,name);toast('Đăng ký thành công.','success');await handleAuthenticatedUser(cred.user)}else await fAuth.signInWithEmailAndPassword(auth,email,password)}catch(err){toast(authError(err.code),'error')}finally{registrationInProgress=false;$('#authSubmit').disabled=false}};
 $('#googleLogin').onclick=async()=>{if(!firebaseReady)return toast('Chưa cấu hình Firebase.','error');try{await fAuth.signInWithPopup(auth,new fAuth.GoogleAuthProvider())}catch(err){toast(authError(err.code),'error')}};
 $('#demoBtn').onclick=()=>bootstrapUser({uid:'demo-user',displayName:'Ân Yan Demo',email:'demo@ayk.local',isDemo:true}).catch(err=>toast(err.message,'error'));
-$('#logoutBtn').onclick=async()=>{stopTest();stopSolo();if(firebaseReady&&!state.user?.isDemo)await fAuth.signOut(auth);state.user=null;state.profile=null;appEl.classList.add('hidden');loginScreen.classList.remove('hidden')};
-function authError(code=''){return ({'auth/invalid-credential':'Sai email hoặc mật khẩu.','auth/email-already-in-use':'Email đã được sử dụng.','auth/weak-password':'Mật khẩu quá yếu.','auth/popup-closed-by-user':'Bạn đã đóng cửa sổ Google.'}[code]||`Lỗi đăng nhập: ${code}`)}
-if(firebaseReady)fAuth.onAuthStateChanged(auth,user=>{if(user)bootstrapUser(user).catch(err=>{console.error(err);toast('Không tải được dữ liệu Firebase. Kiểm tra quyền database: '+err.message,'error')});else if(!state.user?.isDemo){appEl.classList.add('hidden');loginScreen.classList.remove('hidden')}});
+$('#logoutBtn').onclick=async()=>{stopTest();stopSolo();if(firebaseReady&&!state.user?.isDemo)await fAuth.signOut(auth);store.setStoreUser(null);state.user=null;state.profile=null;state.view='dashboard';document.body.classList.remove('admin-mode');$('#passwordSetup').classList.add('hidden');appEl.classList.add('hidden');loginScreen.classList.remove('hidden')};
+function authError(code=''){return ({'auth/invalid-credential':'Sai email hoặc mật khẩu.','auth/email-already-in-use':'Email đã được sử dụng.','auth/weak-password':'Mật khẩu cần ít nhất 6 ký tự.','auth/requires-recent-login':'Hãy đăng nhập Google lại rồi đặt mật khẩu.','auth/provider-already-linked':'Tài khoản đã có mật khẩu. Hãy đăng nhập lại.','auth/credential-already-in-use':'Email đã có tài khoản mật khẩu. Hãy đăng nhập bằng email để tiếp tục.','auth/popup-closed-by-user':'Bạn đã đóng cửa sổ Google.'}[code]||`Lỗi đăng nhập: ${code}`)}
+let pendingGoogleUser=null;
+function needsPassword(user){return user.providerData.some(p=>p.providerId==='google.com')&&!user.providerData.some(p=>p.providerId==='password')}
+async function handleAuthenticatedUser(user){
+  if(needsPassword(user)){
+    pendingGoogleUser=user;loginScreen.classList.add('hidden');appEl.classList.add('hidden');$('#passwordSetup').classList.remove('hidden');
+    $('#setupIdentity').textContent=`Chào ${user.displayName||'bạn'}. Đặt mật khẩu cho ${user.email} để hoàn tất tài khoản.`;
+    $('#setupPassword').focus();return;
+  }
+  pendingGoogleUser=null;await bootstrapUser(user);
+}
+$('#passwordSetupForm').onsubmit=async e=>{
+  e.preventDefault();const password=$('#setupPassword').value;
+  if(password!==$('#setupConfirm').value)return toast('Hai mật khẩu chưa trùng nhau.','error');
+  const user=pendingGoogleUser||auth?.currentUser;if(!user?.email)return toast('Phiên đăng nhập đã hết. Hãy đăng nhập lại.','error');
+  $('#setupSubmit').disabled=true;$('#setupSubmit').textContent='Đang hoàn tất…';
+  try{
+    if(!user.providerData.some(p=>p.providerId==='password'))await fAuth.linkWithCredential(user,fAuth.EmailAuthProvider.credential(user.email,password));
+    $('#passwordSetupForm').reset();toast('Tài khoản đã sẵn sàng. Chào mừng bạn!','success');await handleAuthenticatedUser(user);
+  }catch(err){toast(authError(err.code),'error')}finally{$('#setupSubmit').disabled=false;$('#setupSubmit').textContent='Hoàn tất & bắt đầu học →'}
+};
+$('#setupLogout').onclick=async()=>{await fAuth.signOut(auth);pendingGoogleUser=null;$('#passwordSetupForm').reset();$('#passwordSetup').classList.add('hidden');loginScreen.classList.remove('hidden')};
+if(firebaseReady)fAuth.onAuthStateChanged(auth,user=>{if(registrationInProgress)return;if(user)handleAuthenticatedUser(user).catch(err=>{console.error(err);toast('Không tải được tài khoản: '+err.message,'error')});else if(!state.user?.isDemo){pendingGoogleUser=null;$('#passwordSetup').classList.add('hidden');appEl.classList.add('hidden');loginScreen.classList.remove('hidden')}});
 
 // PWA
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));

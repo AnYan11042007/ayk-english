@@ -275,3 +275,12 @@ https://TEN_GITHUB.github.io/ayk-english/
 - Realtime Database Rules đã giới hạn sửa từ vựng cho Admin.
 - Người dùng không thể tự đổi `role` từ `student` thành `admin` qua frontend.
 - AI Function kiểm tra lại quyền Admin ở phía server trước khi gọi Gemini.
+
+
+## Giao diện AYK Studio và đăng nhập
+
+- Giao diện màu tím nhạt, trang học và trang quản trị thích ứng điện thoại.
+- Admin: bộ lọc từ/buổi, thống kê nội dung, thêm/sửa/xóa từ và xuất CSV.
+- Google: tài khoản chưa có phương thức password được yêu cầu đặt mật khẩu; credential được liên kết vào cùng Firebase UID bằng `linkWithCredential`. Mật khẩu không được lưu trong mã nguồn hay localStorage của ứng dụng.
+- `browserLocalPersistence` ghi nhớ phiên Firebase trên trình duyệt. Tài khoản đã đặt mật khẩu vào thẳng trang khi mở lại, cho tới khi đăng xuất hoặc dữ liệu trình duyệt bị xóa.
+- Tên đăng nhập nội bộ được chuyển sang định danh Firebase theo domain của project. Tài khoản quản trị được tạo riêng trong Firebase Authentication và cấp quyền tại profile `users/{uid}`. Không lưu mật khẩu hay định danh tài khoản quản trị cụ thể trong mã nguồn.
