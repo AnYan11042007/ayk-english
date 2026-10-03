@@ -16,7 +16,7 @@ Trước khi dùng thật, cần hoàn tất trong Firebase Console:
 2. Authentication → Settings → Authorized domains → thêm `anyan11042007.github.io`.
 3. Realtime Database hiện có: `english-ayk-default-rtdb`, khu vực Singapore. Trong tab Rules, dán nội dung `database.rules.json` rồi Publish; hoặc dùng Firebase CLI như hướng dẫn bên dưới.
 4. Sau khi web hoạt động, đăng ký tài khoản chính, đổi `role` của tài khoản đó thành `admin` trong Realtime Database rồi nhập từ mẫu.
-5. AI tra từ cần triển khai Functions và cấu hình secret riêng theo mục 6; cấu hình web không tự kích hoạt AI.
+5. Google Dịch tự động cần triển khai Functions và bật Cloud Translation theo mục 6; cấu hình web không tự kích hoạt dịch tự động.
 
 GitHub Pages: sau khi source có trong nhánh `main`, chọn Settings → Pages → Source: GitHub Actions. Workflow có sẵn trong `.github/workflows/pages.yml`.
 
@@ -34,7 +34,7 @@ Kết nối GitHub đã được cấp quyền truy cập repository. Sau khi so
 - Kiểm tra 10 / 20 / 30 câu, có đếm giờ, chấm điểm và lưu lịch sử.
 - Solo 60 giây, lưu điểm và bảng xếp hạng.
 - Admin thêm / sửa / xóa từ vựng.
-- Admin AI: nhập từ + loại từ → Gemini gợi ý nghĩa Việt, IPA, ví dụ, từ khóa ảnh; web tìm ảnh Wikimedia Commons để Admin duyệt.
+- Admin: chọn nhiều loại từ; máy chủ Google Cloud Translation dịch nghĩa, Free Dictionary cung cấp IPA/ví dụ. Web tìm và gắn ảnh gợi ý theo nghĩa, có thể sửa hoặc bỏ ảnh.
 - PWA: có thể Add to Home Screen trên điện thoại.
 - Chế độ demo bằng `localStorage` khi chưa cấu hình Firebase.
 
@@ -105,7 +105,7 @@ export const firebaseConfig = {
 };
 ```
 
-**Firebase Web config không phải secret.** Có thể để file này trên GitHub. Không được để Gemini API key trong frontend.
+**Firebase Web config không phải secret.** Có thể để file này trên GitHub. Không được để khóa dịch hoặc thông tin xác thực Google Cloud trong frontend.
 
 ---
 
@@ -179,47 +179,11 @@ Trong Admin có nút **Nhập dữ liệu mẫu** để đẩy 24 từ mẫu và
 
 ---
 
-# 6. Bật AI tra từ bằng Gemini
+# 6. Google Dịch tự động
 
-AI được chạy trong **Firebase Cloud Functions**, không chạy trực tiếp ở trình duyệt để tránh lộ API key.
-
-## 6.1 Lấy Gemini API key
-
-Tạo API key cho Gemini trong Google AI Studio.
-
-## 6.2 Cài package Functions
-
-```bash
-cd functions
-npm install
-cd ..
-```
-
-## 6.3 Lưu key vào Firebase Secret Manager
-
-```bash
-firebase functions:secrets:set GEMINI_API_KEY
-```
-
-Dán Gemini API key khi CLI hỏi.
-
-## 6.4 Deploy
-
-```bash
-firebase deploy --only functions,database
-```
-
-Function dùng region:
-
-```text
-asia-southeast1
-```
-
-Frontend đã cấu hình cùng region trong `assets/js/firebase-config.js`.
-
-> Cloud Functions cần project Firebase dùng gói Blaze. Hãy đặt budget alert trong Google Cloud/Firebase để kiểm soát chi phí.
-
----
+Xem [GOOGLE-TRANSLATE-SETUP.md](GOOGLE-TRANSLATE-SETUP.md) để bật Cloud Translation và triển khai máy chủ.
+Máy chủ dùng xác thực Google Cloud của Firebase, không đặt khóa dịch vào trình duyệt.
+Chức năng này chưa hoạt động chỉ nhờ cấu hình Firebase Web hoặc xuất bản GitHub Pages.
 
 # 7. Đưa lên GitHub Pages
 
@@ -263,7 +227,7 @@ https://TEN_GITHUB.github.io/ayk-english/
 - Kiểm tra Realtime Database có node trong `users`.
 - Chuyển tài khoản chính thành `admin` trong Firebase Console.
 - Admin → **Nhập dữ liệu mẫu**.
-- Admin → nhập `adventure`, chọn `n`, bấm **AI tra nghĩa + ảnh**.
+- Admin → nhập `adventure`, chọn `n`, bấm **Tự điền nghĩa, ví dụ & ảnh**.
 - Lưu từ → kiểm tra nhánh `vocabulary`.
 - Học một từ → kiểm tra `progress`.
 - Làm kiểm tra → kiểm tra `testResults`.
@@ -271,10 +235,10 @@ https://TEN_GITHUB.github.io/ayk-english/
 
 ## Ghi chú bảo mật
 
-- Không commit Gemini API key lên GitHub.
+- Không commit khóa dịch hoặc thông tin xác thực Google Cloud lên GitHub.
 - Realtime Database Rules đã giới hạn sửa từ vựng cho Admin.
 - Người dùng không thể tự đổi `role` từ `student` thành `admin` qua frontend.
-- AI Function kiểm tra lại quyền Admin ở phía server trước khi gọi Gemini.
+- Máy chủ kiểm tra quyền admin/teacher, giới hạn 10 lần/phút và lưu kết quả 7 ngày trước khi gọi Google Cloud Translation.
 
 
 ## Giao diện AYK Studio và đăng nhập

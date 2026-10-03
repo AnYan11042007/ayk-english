@@ -1,51 +1,47 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
-const { defineSecret } = require('firebase-functions/params');
-const { initializeApp } = require('firebase-admin/app');
+const { initializeApp, applicationDefault } = require('firebase-admin/app');
 const { getDatabase } = require('firebase-admin/database');
-const { GoogleGenAI, Type } = require('@google/genai');
+const { parseRequest, buildLookup } = require('./lookup-core');
 
-initializeApp({ databaseURL: 'https://english-ayk-default-rtdb.asia-southeast1.firebasedatabase.app' });
-const db = getDatabase();
-const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY');
+const credential=applicationDefault();
+initializeApp({credential,databaseURL:'https://english-ayk-default-rtdb.asia-southeast1.firebasedatabase.app'});
+const db=getDatabase();
 
-exports.lookupVocabulary = onCall(
-  { region: 'asia-southeast1', secrets: [GEMINI_API_KEY], timeoutSeconds: 30, memory: '256MiB' },
-  async (request) => {
-    if (!request.auth) throw new HttpsError('unauthenticated', 'Bạn cần đăng nhập.');
-    const userDoc = await db.ref(`users/${request.auth.uid}`).get();
-    if (!userDoc.exists() || userDoc.val().role !== 'admin') {
-      throw new HttpsError('permission-denied', 'Chỉ Admin được dùng AI thêm từ vựng.');
-    }
-
-    const word = String(request.data?.word || '').trim();
-    const pos = String(request.data?.pos || '').trim();
-    if (!word || !['n','v','adj','adv'].includes(pos)) {
-      throw new HttpsError('invalid-argument', 'Thiếu từ hoặc loại từ không hợp lệ.');
-    }
-
-    const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY.value() });
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: `Bạn là trợ lý tạo dữ liệu từ vựng Anh-Việt cho sinh viên Việt Nam.\nTừ: ${word}\nLoại từ bắt buộc: ${pos}\nHãy trả nghĩa phổ biến, IPA, 1 câu ví dụ tiếng Anh ngắn dễ hiểu, và cụm từ khóa tiếng Anh ngắn để tìm một ảnh minh họa rõ nghĩa. Không giải thích thêm.`,
-      config: {
-        temperature: 0.2,
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            meaning: { type: Type.STRING },
-            ipa: { type: Type.STRING },
-            example: { type: Type.STRING },
-            imageSearchKeyword: { type: Type.STRING }
-          },
-          required: ['meaning','ipa','example','imageSearchKeyword']
-        }
-      }
-    });
-
-    let parsed;
-    try { parsed = JSON.parse(response.text); }
-    catch { throw new HttpsError('internal', 'AI trả dữ liệu không đúng định dạng.'); }
-    return { word, pos, ...parsed };
+async function translate(texts,source,target){
+  const {access_token}=await credential.getAccessToken();
+  const response=await fetch('https://translation.googleapis.com/language/translate/v2',{
+    method:'POST',headers:{Authorization:`Bearer ${access_token}`,'Content-Type':'application/json'},
+    body:JSON.stringify({q:texts,source,target,format:'text'}),signal:AbortSignal.timeout(10000)
+  });
+  if(!response.ok){console.error('Cloud Translation HTTP status',response.status);throw new HttpsError('failed-precondition','Google Dịch chưa sẵn sàng. Chủ web cần bật Cloud Translation và cấu hình thanh toán.');}
+  const json=await response.json();
+  return (json.data?.translations||[]).map(t=>t.translatedText);
+}
+async function fetchDictionary(word){
+  const r=await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`,{signal:AbortSignal.timeout(6000)});
+  return r.ok?r.json():[];
+}
+exports.lookupVocabulary=onCall({region:'asia-southeast1',timeoutSeconds:45,memory:'256MiB',maxInstances:1},async request=>{
+  if(!request.auth)throw new HttpsError('unauthenticated','Bạn cần đăng nhập.');
+  const user=await db.ref(`users/${request.auth.uid}`).get();
+  if(!['admin','teacher'].includes(user.val()?.role))throw new HttpsError('permission-denied','Chỉ admin và giáo viên được tra từ để soạn bài.');
+  let parsed;try{parsed=parseRequest(request.data)}catch(err){throw new HttpsError('invalid-argument',err.message)}
+  const now=Date.now();
+  const quota=await db.ref(`lookupLimits/${request.auth.uid}`).transaction(old=>{
+    const current=old&&now-old.startedAt<60000?old:{startedAt:now,count:0};
+    if(current.count>=10)return;
+    return {...current,count:current.count+1};
+  });
+  if(!quota.committed)throw new HttpsError('resource-exhausted','Bạn đã tra 10 lần trong một phút. Hãy thử lại sau.');
+  const cacheId=Buffer.from(`${parsed.word}:${parsed.partsOfSpeech.slice().sort().join(',')}`).toString('base64url');
+  const ref=db.ref(`lookupCache/${cacheId}`);const cached=await ref.get();
+  if(cached.exists()&&now-cached.val().createdAt<7*86400000)return cached.val().result;
+  try{
+    const result=await buildLookup(parsed,{fetchDictionary,translate});
+    await ref.set({createdAt:now,result});return result;
+  }catch(err){
+    if(err instanceof HttpsError)throw err;
+    console.error('Vocabulary lookup failed:',err.message);
+    throw new HttpsError('unavailable','Chưa thể tra đầy đủ từ này. Kiểm tra kết nối hoặc thử loại từ khác.');
   }
-);
+});
