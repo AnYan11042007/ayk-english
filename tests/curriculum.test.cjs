@@ -1,0 +1,21 @@
+const vm=require('vm'),fs=require('fs'),assert=require('assert');
+const root='assets/js/';let data={},key=0,deny=false;
+const clone=v=>v===undefined?null:JSON.parse(JSON.stringify(v));const snap=v=>({val:()=>clone(v),exists:()=>v!=null});
+const fDb={ref:(db,path)=>({path,key:path.split('/').at(-1)}),get:async r=>{if(deny&&['categories','lessons'].includes(r.path))throw new Error('PERMISSION_DENIED');return snap(data[r.path])},push:r=>({path:r.path+'/k'+(++key),key:'k'+key}),update:async(r,v)=>{data[r.path]={...(data[r.path]||{}),...clone(v)}},runTransaction:async(r,fn)=>{data[r.path]=fn(data[r.path]);return {committed:true,snapshot:snap(data[r.path])}},serverTimestamp:()=>123};
+const c={console,firebaseReady:true,db:{},fDb,starterVocabulary:[{id:'w1',word:'book',meaning:'sách',session:1,pos:'n'}],localStorage:{getItem:()=>null,setItem(){}}};vm.createContext(c);
+vm.runInContext(fs.readFileSync(root+'store.js','utf8').replace(/^import .*;\n/gm,'').replace(/export /g,''),c);
+vm.runInContext(fs.readFileSync(root+'curriculum.js','utf8').replace(/export /g,''),c);
+const run=x=>vm.runInContext(x,c);
+(async()=>{
+ run("setStoreUser({uid:'teacher1'})");
+ const cat=await run("saveCategory({name:'Giao tiếp',description:'Hằng ngày'})");assert.equal(cat.name,'Giao tiếp');
+ c.catId=cat.id;
+ const [a,b]=await Promise.all([run("saveLesson({name:'Chào hỏi',categoryId:catId},4)"),run("saveLesson({name:'Giới thiệu bản thân',categoryId:catId},4)")]);assert.equal(a.number,5);assert.equal(b.number,6);
+ data['vocabulary/word1']={word:'hello',meaning:'xin chào',pos:'n',session:5};data['progress/student/word1']={mastered:true};
+ await run("saveLesson({number:5,name:'Buổi mở đầu',categoryId:'foundations'},6)");assert.equal(data['lessons/5'].name,'Buổi mở đầu');assert.equal(data['vocabulary/word1'].session,5);assert(data['progress/student/word1'].mastered);
+ assert.equal(run("buildLessons([{session:1},{session:5}],[{number:5,name:'Buổi mở đầu',categoryId:'foundations'}]).length"),2);
+ deny=true;const fallback=await run('getCurriculum()');assert(fallback.needsRules);assert.equal(fallback.categories.length,0);deny=false;
+ run("setStoreUser({uid:'demo',isDemo:true})");const local=await run("saveLesson({name:'Demo',categoryId:'foundations'},4)");assert.equal(local.number,5);assert.equal(data['lessons/5'].name,'Buổi mở đầu');
+ const ideas=fs.readFileSync(root+'ideas.js','utf8').replace('export const learningIdeas = ','');const list=JSON.parse(ideas.slice(0,-2));assert.equal(list.length,100);assert.equal(new Set(list.map(i=>i.id)).size,100);assert.equal(list.filter(i=>i.game).length,3);
+ console.log('PASS: category save, concurrent lesson allocation, rename/move preserves vocabulary and progress, legacy migration, missing-rules fallback, demo isolation, 100 distinct ideas.');
+})().catch(e=>{console.error(e);process.exitCode=1});

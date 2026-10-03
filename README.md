@@ -284,3 +284,13 @@ https://TEN_GITHUB.github.io/ayk-english/
 - Google: tài khoản chưa có phương thức password được yêu cầu đặt mật khẩu; credential được liên kết vào cùng Firebase UID bằng `linkWithCredential`. Mật khẩu không được lưu trong mã nguồn hay localStorage của ứng dụng.
 - `browserLocalPersistence` ghi nhớ phiên Firebase trên trình duyệt. Tài khoản đã đặt mật khẩu vào thẳng trang khi mở lại, cho tới khi đăng xuất hoặc dữ liệu trình duyệt bị xóa.
 - Tên đăng nhập nội bộ được chuyển sang định danh Firebase theo domain của project. Tài khoản quản trị được tạo riêng trong Firebase Authentication và cấp quyền tại profile `users/{uid}`. Không lưu mật khẩu hay định danh tài khoản quản trị cụ thể trong mã nguồn.
+
+
+## Danh mục, buổi học và trò chơi
+
+- `categories/{id}` lưu tên và mô tả danh mục; `lessons/{number}` lưu tên buổi, mô tả và `categoryId`. Từ vựng tiếp tục dùng số `session`, nên đổi tên hoặc chuyển danh mục không làm mất liên kết từ và tiến độ.
+- `nextSession` được cấp phát bằng transaction để tránh hai giáo viên tạo cùng số buổi.
+- Quyền `teacher` được admin gán tại `users/{uid}/role`. Giáo viên chỉ có quyền quản lý nội dung và dữ liệu học của chính mình, không được đổi quyền người dùng khác. Người dùng thường không thể tự nâng quyền.
+- Cần áp dụng `database.rules.json` mới trước khi lưu danh mục/buổi học trên Firebase. Nếu chưa áp dụng, app vẫn tải thư viện hiện tại và thông báo phần kết nối chưa hoàn tất.
+- Trò chơi ghép từ, nghe viết và xếp chữ lấy từ buổi đã chọn. Đáp án được ghi vào tiến độ của học viên. Phát âm dùng speech synthesis của trình duyệt.
+- Trang 100 ý tưởng phân biệt rõ 3 trò chơi đã có và 97 đề xuất phát triển. Toàn bộ danh sách ở `IDEAS.md`.

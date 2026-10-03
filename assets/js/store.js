@@ -112,3 +112,23 @@ export async function getLeaderboard() {
   const q=fDb.query(fDb.ref(db,'soloScores'),fDb.orderByChild('score'),fDb.limitToLast(10));
   return rows(await fDb.get(q)).sort((a,b)=>b.score-a.score);
 }
+
+export async function getCurriculum(){
+  if(isLocalMode())return {categories:demoState.categories||[],lessons:demoState.lessons||[]};
+  try{const [cats,lessons]=await Promise.all([fDb.get(fDb.ref(db,'categories')),fDb.get(fDb.ref(db,'lessons'))]);return {categories:rows(cats),lessons:rows(lessons),needsRules:false}}catch(err){if(/permission.denied/i.test(String(err.code||err.message)))return {categories:[],lessons:[],needsRules:true};throw err}
+}
+export async function saveCategory(item){
+  const name=String(item.name||'').trim();if(!name)throw new Error('Nhập tên danh mục.');
+  const row={name,description:String(item.description||'').trim(),updatedAt:Date.now()};
+  if(isLocalMode()){demoState.categories||=[];const id=item.id||`cat-${Date.now()}`;const i=demoState.categories.findIndex(x=>x.id===id);const saved={...row,id};i<0?demoState.categories.push(saved):demoState.categories.splice(i,1,saved);saveDemo();return saved}
+  const ref=item.id?fDb.ref(db,`categories/${item.id}`):fDb.push(fDb.ref(db,'categories'));
+  await fDb.update(ref,{...row,updatedAt:fDb.serverTimestamp()});return {...row,id:ref.key};
+}
+export async function saveLesson(item,maxNumber=0){
+  const name=String(item.name||'').trim();if(!name||!item.categoryId)throw new Error('Nhập tên buổi và chọn danh mục.');
+  let number=Number(item.number)||0;
+  if(!number){if(isLocalMode())number=Math.max(maxNumber,...(demoState.lessons||[]).map(x=>x.number))+1;else{const allocation=await fDb.runTransaction(fDb.ref(db,'nextSession'),value=>Math.max(Number(value)||0,maxNumber)+1);if(!allocation.committed)throw new Error('Chưa tạo được buổi. Hãy thử lại.');number=allocation.snapshot.val()}}
+  const row={number,name,categoryId:item.categoryId,description:String(item.description||'').trim(),updatedAt:Date.now()};
+  if(isLocalMode()){demoState.lessons||=[];const i=demoState.lessons.findIndex(x=>x.number===number);i<0?demoState.lessons.push(row):demoState.lessons.splice(i,1,row);saveDemo();return row}
+  await fDb.update(fDb.ref(db,`lessons/${number}`),{...row,updatedAt:fDb.serverTimestamp()});return row;
+}
