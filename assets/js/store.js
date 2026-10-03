@@ -141,8 +141,9 @@ export async function resetLearningContent(){
   if(curriculum.needsRules)throw new Error('Cần cập nhật quy tắc Firebase trước khi dọn nội dung.');
   const archive={vocabulary,categories:curriculum.categories,lessons:curriculum.lessons,createdAt:Date.now(),createdBy:activeUser.uid};
   if(isLocalMode()){demoState.contentArchive=archive;demoState.vocabulary=[];demoState.categories=[];demoState.lessons=[];saveDemo();return archive}
+  archive.nextSession=(await fDb.get(fDb.ref(db,'nextSession'))).val()||0;
   const archiveRef=fDb.push(fDb.ref(db,'contentArchives'));
-  await fDb.update(fDb.ref(db,''),{['contentArchives/'+archiveRef.key]:archive,vocabulary:null,categories:null,lessons:null});
+  await fDb.update(fDb.ref(db,''),{['contentArchives/'+archiveRef.key]:archive,vocabulary:null,categories:null,lessons:null,nextSession:null});
   return archive;
 }
 export async function restoreLearningContent(){
@@ -154,7 +155,7 @@ export async function restoreLearningContent(){
   if(!archive)throw new Error('Chưa có bản lưu để khôi phục.');
   if(isLocalMode()){demoState.vocabulary=archive.vocabulary||[];demoState.categories=archive.categories||[];demoState.lessons=archive.lessons||[];saveDemo();return}
   const toObject=(items,key)=>Object.fromEntries((items||[]).map(item=>{const {id,...row}=item;return [item[key],row]}));
-  await fDb.update(fDb.ref(db,''),{vocabulary:toObject(archive.vocabulary,'id'),categories:toObject(archive.categories,'id'),lessons:toObject(archive.lessons,'number')});
+  await fDb.update(fDb.ref(db,''),{vocabulary:toObject(archive.vocabulary,'id'),categories:toObject(archive.categories,'id'),lessons:toObject(archive.lessons,'number'),nextSession:Math.max(archive.nextSession||0,...(archive.lessons||[]).map(l=>l.number))||null});
 }
 export async function deleteLesson(number){
  const words=(await getVocabulary()).filter(w=>Number(w.session)===Number(number));
@@ -163,7 +164,7 @@ export async function deleteLesson(number){
  await fDb.remove(fDb.ref(db,`lessons/${number}`));
 }
 export async function deleteCategory(id){
- const c=await getCurriculum();if(c.lessons.some(l=>l.categoryId===id))throw new Error('Chuyển hoặc xóa các buổi trong danh mục trước.');
+ const c=await getCurriculum();if(c.lessons.some(l=>l.categoryId===id)||(await getVocabulary()).some(w=>(c.lessons.find(l=>l.number===Number(w.session))?.categoryId||'foundations')===id))throw new Error('Chuyển hoặc xóa các buổi trong danh mục trước.');
  if(isLocalMode()){demoState.categories=(demoState.categories||[]).filter(c=>c.id!==id);saveDemo();return}
  await fDb.remove(fDb.ref(db,`categories/${id}`));
 }

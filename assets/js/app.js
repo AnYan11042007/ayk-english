@@ -1,7 +1,7 @@
 import {defaultCategories, buildLessons, categoryForWord} from './curriculum.js';
 import { firebaseReady, auth, fAuth } from './firebase.js';
 import { firebaseConfig, isFirebaseConfigured } from './firebase-config.js';
-import * as store from './store.js?v=classroom-v7';
+import * as store from './store.js?v=classroom-v8';
 import { aiLookup, searchCommonsImages } from './ai.js';
 
 const $ = (s,root=document)=>root.querySelector(s);
@@ -43,7 +43,7 @@ async function refreshCurriculum(){const c=await store.getCurriculum();state.les
 function userDisplayName(){return state.profile?.displayName||state.user?.displayName||state.user?.email?.split('@')[0]||'Học viên'}
 function sessions(){return [...new Set([...state.lessons.map(x=>x.number),...state.vocab.map(x=>Number(x.session)||1)])].sort((a,b)=>a-b)}
 function wordsOfSession(s=state.session){return state.vocab.filter(x=>Number(x.session)===Number(s))}
-function masteredCount(){return Object.values(state.progress).filter(x=>x.mastered).length}
+function masteredCount(){return state.vocab.filter(w=>state.progress[w.id]?.mastered).length}
 function progressPct(){return state.vocab.length?Math.round(masteredCount()/state.vocab.length*100):0}
 function wrongWords(){return state.vocab.filter(w=>(state.progress[w.id]?.wrongCount||0)>0 || state.progress[w.id]?.starred)}
 
