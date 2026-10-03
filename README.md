@@ -293,4 +293,5 @@ https://TEN_GITHUB.github.io/ayk-english/
 - Quyền `teacher` được admin gán tại `users/{uid}/role`. Giáo viên chỉ có quyền quản lý nội dung và dữ liệu học của chính mình, không được đổi quyền người dùng khác. Người dùng thường không thể tự nâng quyền.
 - Cần áp dụng `database.rules.json` mới trước khi lưu danh mục/buổi học trên Firebase. Nếu chưa áp dụng, app vẫn tải thư viện hiện tại và thông báo phần kết nối chưa hoàn tất.
 - Trò chơi ghép từ, nghe viết và xếp chữ lấy từ buổi đã chọn. Đáp án được ghi vào tiến độ của học viên. Phát âm dùng speech synthesis của trình duyệt.
-- Trang 100 ý tưởng phân biệt rõ 3 trò chơi đã có và 97 đề xuất phát triển. Toàn bộ danh sách ở `IDEAS.md`.
+- Trang học có hành trình theo buổi và 5 trò chơi: ghép thẻ, nghe viết, xếp chữ, nghe chọn đáp án, điền chữ còn thiếu. Danh sách ý tưởng trước đây lưu ở `IDEAS.md`, không hiển thị trên web.
+- Firebase giữ phiên bằng browserLocalPersistence. Khi reload, web chờ khôi phục tài khoản rồi mở trang gần nhất. Phiên demo cũng được lưu đến khi đăng xuất; không lưu mật khẩu trong localStorage.
