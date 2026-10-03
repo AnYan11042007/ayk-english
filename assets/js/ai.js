@@ -14,6 +14,15 @@ Object.assign(dictionary,{
   confident:{meaning:'tự tin',pos:'adj',ipa:'/ˈkɒn.fɪ.dənt/',example:'She feels confident when speaking English.'},
   airport:{meaning:'sân bay',pos:'n',ipa:'/ˈeə.pɔːt/',example:'We arrived at the airport early.'}
 });
+const multipleSenses={
+  light:[{pos:'n',meaning:'ánh sáng',example:'Turn on the light.'},{pos:'v',meaning:'thắp sáng, chiếu sáng',example:'The lamps light the room.'},{pos:'adj',meaning:'nhẹ; sáng màu',example:'This bag is light.'}],
+  book:[{pos:'n',meaning:'quyển sách',example:'This book is very interesting.'},{pos:'v',meaning:'đặt trước, đặt chỗ',example:'Please book a table for two.'}],
+  water:[{pos:'n',meaning:'nước',example:'Please drink more water.'},{pos:'v',meaning:'tưới nước',example:'I water the plants every morning.'}],
+  study:[{pos:'n',meaning:'việc học, việc nghiên cứu',example:'The study of English takes time.'},{pos:'v',meaning:'học, nghiên cứu',example:'I study English every day.'}]
+};
+dictionary.light={word:'light',pos:'n',meaning:'ánh sáng',ipa:'/laɪt/',example:'Turn on the light.'};
+for(const [word,senses]of Object.entries(multipleSenses))dictionary[word].senses=senses;
+
 export async function dictionaryLookup(word){
   try{
     const res=await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`,{signal:AbortSignal.timeout(8000)});
@@ -33,19 +42,21 @@ export async function aiLookup(input,parts){
     }catch(err){console.warn('Google translation service unavailable',err);}
   }
   const local=dictionary[parsed.word];
-  const details=await dictionaryLookup(parsed.word);
+  const details=local?{partsOfSpeech:(local.senses||[local]).map(s=>s.pos),senses:local.senses||[local],ipa:local.ipa}:await dictionaryLookup(parsed.word);
   if(local){
     const available=details.partsOfSpeech.length?details.partsOfSpeech:[local.pos];
     const selected=parsed.partsOfSpeech.filter(p=>available.includes(p));
     const partsOfSpeech=selected.length?selected:[local.pos];
-    return {...local,word:parsed.word,meaning:partsOfSpeech.includes(local.pos)?local.meaning:'',example:details.senses.find(s=>partsOfSpeech.includes(s.pos)&&s.example)?.example||(partsOfSpeech.includes(local.pos)?local.example:''),imageSearchKeyword:partsOfSpeech.includes(local.pos)&&local.pos==='n'?parsed.word:'',imageMeaning:local.meaning,pos:partsOfSpeech[0],partsOfSpeech,availablePartsOfSpeech:available,suggestedPos:local.pos,source:'local-dictionary',senses:details.senses,note:`Nghĩa có sẵn cho ${local.pos}; các loại từ khác cần bổ sung nghĩa. Google Dịch tự động chưa được kích hoạt.`};
+    const chosen=details.senses.filter(s=>partsOfSpeech.includes(s.pos)&&s.meaning);
+    const meaning=chosen.length===1?chosen[0].meaning:chosen.map(s=>`(${s.pos}) ${s.meaning}`).join('; ');
+    return {...local,word:parsed.word,meaning,example:chosen.find(s=>s.example)?.example||'',imageSearchKeyword:partsOfSpeech[0]==='n'?parsed.word:'',imageMeaning:chosen[0]?.meaning||'',pos:partsOfSpeech[0],partsOfSpeech,availablePartsOfSpeech:available,suggestedPos:local.pos,source:'local-dictionary',senses:chosen,note:'Từ điển có sẵn · Google Dịch tự động chưa được kích hoạt.'};
   }
   if(details.partsOfSpeech.length){
     const selected=parsed.partsOfSpeech.filter(p=>details.partsOfSpeech.includes(p));
     const partsOfSpeech=selected.length?selected:details.partsOfSpeech;
     return {word:parsed.word,pos:partsOfSpeech[0],partsOfSpeech,availablePartsOfSpeech:details.partsOfSpeech,ipa:details.ipa,example:details.senses.find(s=>partsOfSpeech.includes(s.pos)&&s.example)?.example||'',senses:details.senses,meaning:'',source:'free-dictionary',note:'Đã tìm loại từ và ví dụ. Google Dịch tự động chưa được kích hoạt; bấm Google Dịch để xem nghĩa.'};
   }
-  throw new Error('Google Dịch tự động chưa được kích hoạt và từ điển chưa có từ này. Bạn có thể mở Google Dịch hoặc tự điền nghĩa.');
+  throw new Error('Google Dịch tự động chưa được kích hoạt và chưa lấy được kết quả từ từ điển. Bạn có thể mở Google Dịch hoặc tự điền nghĩa.');
 }
 
 export async function searchCommonsImages(keyword){
