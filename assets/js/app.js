@@ -1,8 +1,7 @@
 import {defaultCategories, buildLessons, categoryForWord} from './curriculum.js';
-import {learningIdeas} from './ideas.js';
 import { firebaseReady, auth, fAuth } from './firebase.js';
 import { firebaseConfig, isFirebaseConfigured } from './firebase-config.js';
-import * as store from './store.js?v=curriculum-v4';
+import * as store from './store.js?v=play-v5';
 import { aiLookup, searchCommonsImages } from './ai.js';
 
 const $ = (s,root=document)=>root.querySelector(s);
@@ -14,9 +13,13 @@ const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const state={
   user:null,profile:null,vocab:[],progress:{},testResults:[],leaderboard:[],view:'dashboard',
   session:1,flashIndex:0,flashReveal:false,search:'',pos:'all',
-  exercise:null,test:null,solo:null,adminEdit:null,adminImages:[],adminSelectedImage:'',adminSearch:'',adminSession:'all',categories:[],lessons:[],category:'all',vocabSession:'all',adminCategory:'all',game:null,ideaGroup:'all',ideaSearch:''
+  exercise:null,test:null,solo:null,adminEdit:null,adminImages:[],adminSelectedImage:'',adminSearch:'',adminSession:'all',categories:[],lessons:[],category:'all',vocabSession:'all',adminCategory:'all',game:null
 };
 
+const DEMO_USER={uid:'demo-user',displayName:'Ân Yan Demo',email:'demo@ayk.local',isDemo:true};
+const saved={get(key){try{return JSON.parse(localStorage.getItem(key))}catch{return null}},set(key,value){try{localStorage.setItem(key,JSON.stringify(value))}catch{}},remove(key){try{localStorage.removeItem(key)}catch{}}};
+function finishLoading(){$('#authLoading').classList.add('hidden')}
+function showLogin(){finishLoading();appEl.classList.add('hidden');loginScreen.classList.remove('hidden')}
 const loginScreen=$('#loginScreen'), appEl=$('#app'), viewRoot=$('#viewRoot'), authForm=$('#authForm');
 const toastEl=$('#toast'), modal=$('#modal'), modalContent=$('#modalContent');
 let toastTimer;
@@ -53,11 +56,15 @@ async function bootstrapUser(user){
   state.progress=await store.getProgress(user);
   state.testResults=await store.getTestResults(user);
   state.leaderboard=await store.getLeaderboard();
-  state.session=sessions()[0]||1;
+  const resume=saved.get('ayk_resume_'+user.uid);
+  state.session=sessions().includes(resume?.session)?resume.session:sessions()[0]||1;
   $('#userName').textContent=userDisplayName();$('#avatar').textContent=initials(userDisplayName());
   $('#adminNav').classList.toggle('hidden',!canTeach());
   loginScreen.classList.add('hidden');appEl.classList.remove('hidden');
-  state.view=canTeach()?'admin':'dashboard';
+  const allowed=['dashboard','learn','review','vocabulary','sessions','exercises','tests','solo','games',...(canTeach()?['admin']:[])];
+  state.view=allowed.includes(resume?.view)?resume.view:canTeach()?'admin':'dashboard';
+  if(user.isDemo)saved.set('ayk_demo_session',true);else saved.remove('ayk_demo_session');
+  finishLoading();
   document.body.classList.toggle('admin-mode',isAdmin());
   $('#passwordSetup').classList.add('hidden');
   updateSidebarProgress();navigate(state.view);
@@ -76,36 +83,46 @@ function navigate(view){
   if(view==='admin'&&!canTeach()) return toast('Bạn không có quyền Admin.','error');
   if(state.test?.active&&view!=='tests'&&!confirm('Bài kiểm tra đang làm sẽ bị hủy. Rời trang?'))return;
   if(view!=='tests')stopTest(); if(view!=='solo')stopSolo();
-  state.view=view;$('#sidebar').classList.remove('open');
+  state.view=view;saved.set('ayk_resume_'+state.user.uid,{view,session:state.session});$('#sidebar').classList.remove('open');
   $$('.nav-item[data-view]').forEach(x=>x.classList.toggle('active',x.dataset.view===view));
   $$('#bottomNav button').forEach(x=>x.classList.toggle('active',x.dataset.view===view));
   renderView();window.scrollTo({top:0,behavior:'smooth'});
 }
 
 function renderView(){
-  const renderers={dashboard:renderDashboard,learn:renderLearn,review:renderReview,vocabulary:renderVocabulary,sessions:renderSessions,exercises:renderExercises,tests:renderTests,solo:renderSolo,admin:renderAdmin,games:renderGames,ideas:renderIdeas};
+  const renderers={dashboard:renderDashboard,learn:renderLearn,review:renderReview,vocabulary:renderVocabulary,sessions:renderSessions,exercises:renderExercises,tests:renderTests,solo:renderSolo,admin:renderAdmin,games:renderGames};
   (renderers[state.view]||renderDashboard)();
 }
 
 function pageTitle(title,sub,actions=''){return `<div class="page-title"><div><h1>${title}</h1><p>${sub}</p></div>${actions}</div>`}
 function featureCards(){
-  const fs=[['learn','📘','Học','Flashcard từ vựng'],['review','↻','Ôn bài','Xem lại từ khó'],['vocabulary','Aa','Từ vựng','Tra và lọc từ'],['sessions','▦','Theo buổi','Học theo lịch'],['exercises','✎','Làm bài tập','Luyện tập nhanh'],['tests','▤','Kiểm tra','Đánh giá năng lực'],['solo','🏆','Solo bài','Thử thách điểm']];
+  const fs=[['learn','📘','Học','Flashcard từ vựng'],['games','🎮','Trò chơi','5 cách luyện từ'],['review','↻','Ôn bài','Xem lại từ khó'],['vocabulary','Aa','Từ vựng','Tra và lọc từ'],['sessions','▦','Theo buổi','Học theo lịch'],['exercises','✎','Làm bài tập','Luyện tập nhanh'],['tests','▤','Kiểm tra','Đánh giá năng lực'],['solo','🏆','Solo bài','Thử thách điểm']];
   return `<div class="feature-grid">${fs.map(x=>`<button class="feature-card" data-go="${x[0]}"><div class="fi">${x[1]}</div><b>${x[2]}</b><small>${x[3]}</small></button>`).join('')}</div>`;
 }
 
 function renderDashboard(){
   const p=progressPct(), today=wordsOfSession(state.session).slice(0,4), latest=state.testResults[0];
   viewRoot.innerHTML=`
-    <section class="hero"><div class="hero-copy"><span class="eyebrow">YOUR PERSONAL LEARNING SPACE</span><h1>Hôm nay, mình học<br>điều gì mới? <span class="hero-dot">✦</span></h1><p>Chào ${esc(userDisplayName())}. Dành một chút thời gian cho tiếng Anh — mỗi từ mới là một bước tiến của bạn.</p><button class="btn hero-cta" data-go="learn">Tiếp tục học <span>↗</span></button><div class="hero-badges"><span>✦ Học theo nhịp của bạn</span><span>📚 ${state.vocab.length} từ trong thư viện</span><span>🏆 Solo & bảng xếp hạng</span></div></div><div class="hero-illustration" aria-hidden="true"><div class="hero-mini">TODAY’S MINDSET<b>Keep<br>growing.</b><span>✦</span></div></div></section>
+    <section class="hero"><div class="hero-copy"><span class="eyebrow">YOUR PERSONAL LEARNING SPACE</span><h1>Hôm nay, mình học<br>điều gì mới? <span class="hero-dot">✦</span></h1><p>Chào ${esc(userDisplayName())}. Dành một chút thời gian cho tiếng Anh — mỗi từ mới là một bước tiến của bạn.</p><button class="btn hero-cta" data-go="learn">Tiếp tục học <span>↗</span></button><div class="hero-badges"><span>✦ Học theo nhịp của bạn</span><span>📚 ${state.vocab.length} từ trong thư viện</span><span>🏆 Solo & bảng xếp hạng</span></div></div><div class="hero-illustration" aria-hidden="true"><div class="learning-art"><span class="art-headphones">♫</span><span class="art-book">Aa<small>ENGLISH</small></span><span class="art-tile">W</span><span class="art-star">✦</span><span class="art-note">Small steps.<br>Big progress.</span></div></div></section>
+    ${learningJourney()}${gameShelf()}
     <div class="section-heading"><h2>Khám phá góc học tập</h2><span>Chọn cách học bạn yêu thích</span></div>${featureCards()}
     <div class="dashboard-grid">
       <div class="panel wide"><div class="panel-title"><h3>🎯 Tiến độ học tập</h3><button class="link-btn" data-go="vocabulary">Xem từ vựng →</button></div><div class="progress-flex"><div class="progress-ring" style="--p:${p}"><span>${p}%</span></div><div class="stats-row w-full"><div class="stat"><small>Từ đã thuộc</small><strong>${masteredCount()}</strong></div><div class="stat"><small>Tổng từ</small><strong>${state.vocab.length}</strong></div><div class="stat"><small>Buổi học</small><strong>${sessions().length}</strong></div><div class="stat"><small>Bài kiểm tra</small><strong>${state.testResults.length}</strong></div></div></div></div>
-      <div class="panel"><div class="panel-title"><h3>⭐ Nhiệm vụ hôm nay</h3><span class="badge">3 mục</span></div><div class="task-list"><div class="task ${masteredCount()>=5?'done':''}">☑ Học ít nhất 5 từ</div><div class="task ${state.testResults.length?'done':''}">☑ Hoàn thành 1 bài kiểm tra</div><div class="task ${state.leaderboard.some(x=>x.uid===state.user.uid)?'done':''}">☑ Chơi Solo 1 lần</div></div></div>
+      <div class="panel"><div class="panel-title"><h3>⭐ Cột mốc của bạn</h3><span class="badge">3 mục</span></div><div class="task-list"><div class="task ${masteredCount()>=5?'done':''}">☑ Học ít nhất 5 từ</div><div class="task ${state.testResults.length?'done':''}">☑ Hoàn thành 1 bài kiểm tra</div><div class="task ${state.leaderboard.some(x=>x.uid===state.user.uid)?'done':''}">☑ Chơi Solo 1 lần</div></div></div>
       <div class="panel"><div class="panel-title"><h3>📊 Kiểm tra gần nhất</h3><button class="link-btn" data-go="tests">Mở →</button></div>${latest?`<div class="score-box"><div class="score-number">${latest.score}%</div><b>${latest.correct}/${latest.total} câu đúng</b><p class="muted">${fmtDate(latest.createdAt)}</p></div>`:`<div class="empty"><div class="emoji">📝</div><p>Chưa có bài kiểm tra.</p></div>`}</div>
     </div>
     <div class="panel section-gap"><div class="panel-title"><h3>📘 Từ vựng • ${esc(lessonName(state.session))}</h3><button class="link-btn" data-go="sessions">Xem tất cả →</button></div>${sessionTabs()}<div class="vocab-grid section-gap">${today.map(vocabCard).join('')||empty('Chưa có từ vựng trong buổi này.')}</div></div>`;
-  bindCommon();bindVocabCards();bindSessionTabs(()=>renderDashboard());
+  bindCommon();bindGameStarts();bindJourney();bindVocabCards();bindSessionTabs(()=>renderDashboard());
 }
+
+function gameShelf(){
+ const cards=[['match','▦','Ghép thẻ','Tìm từ và nghĩa tương ứng','mint'],['spelling','♫','Nghe & viết','Nghe phát âm, luyện chính tả','peach'],['scramble','Aa','Xếp chữ','Giải mã chữ cái thành từ','purple'],['listening','◉','Tai nghe tinh tường','Nghe rồi chọn đúng từ','blue'],['missing','A_','Chữ nào còn thiếu?','Điền chữ để hoàn thành từ','yellow']];
+ return `<div class="section-heading"><h2>Chơi để nhớ lâu hơn</h2><span>5 trò chơi · từ vựng của buổi đang chọn</span></div><div class="play-shelf">${cards.map(([id,icon,title,sub,color])=>`<button class="play-card ${color}" data-game="${id}"><span class="play-art" aria-hidden="true">${icon}<i>✦</i></span><strong>${title}</strong><small>${sub}</small><span class="play-arrow">Chơi ngay ↗</span></button>`).join('')}</div>`;
+}
+function learningJourney(){
+ return `<section class="panel journey section-gap"><div class="panel-title"><h2>Hành trình của bạn</h2><button class="link-btn" data-go="sessions">Tất cả buổi →</button></div><div class="journey-track">${state.lessons.slice(0,6).map((l,i)=>{const words=wordsOfSession(l.number),done=words.filter(w=>state.progress[w.id]?.mastered).length;return `<button class="journey-step ${state.session===l.number?'current':''}" data-journey="${l.number}"><span class="journey-node">${words.length&&done===words.length?'✓':['📘','🎧','💬','🌱','🎯','⭐'][i]}</span><b>${esc(l.name)}</b><small>${done}/${words.length} từ đã thuộc</small><span class="journey-meter"><i style="width:${words.length?done/words.length*100:0}%"></i></span></button>`}).join('')||empty('Giáo viên sẽ thêm buổi học tại đây.')}</div></section>`;
+}
+function bindJourney(){$$('[data-journey]').forEach(b=>b.onclick=()=>{state.session=Number(b.dataset.journey);state.flashIndex=0;state.flashReveal=false;navigate('learn')})}
 
 function sessionTabs(){return `<div class="session-strip">${sessions().map(s=>`<button class="session-pill ${s===state.session?'active':''}" data-session="${s}">${esc(lessonName(s))}</button>`).join('')}</div>`}
 function empty(msg){return `<div class="empty"><div class="emoji">📭</div><p>${msg}</p></div>`}
@@ -253,14 +270,14 @@ $('#toggleAuth').onclick=()=>{registerMode=!registerMode;authForm.classList.togg
 $('#configNote').textContent=isFirebaseConfigured()?(firebaseReady?'Đã cấu hình Firebase Realtime Database.':'Có config Firebase nhưng chưa khởi tạo được.'):'Chưa cấu hình Firebase — nút “Xem bản demo” vẫn dùng đầy đủ dữ liệu mẫu trên máy này.';
 authForm.onsubmit=async e=>{e.preventDefault();if(!firebaseReady)return toast('Chưa cấu hình Firebase. Hãy dùng bản demo hoặc điền firebase-config.js.','error');const identity=$('#email').value.trim();const email=!registerMode&&!identity.includes('@')?`${identity.toLowerCase()}@${firebaseConfig.authDomain}`:identity,password=$('#password').value,name=$('#displayName').value.trim();registrationInProgress=registerMode;$('#authSubmit').disabled=true;try{if(registerMode){const cred=await fAuth.createUserWithEmailAndPassword(auth,email,password);if(name)await fAuth.updateProfile(cred.user,{displayName:name});await store.ensureUserProfile(cred.user,name);toast('Đăng ký thành công.','success');await handleAuthenticatedUser(cred.user)}else await fAuth.signInWithEmailAndPassword(auth,email,password)}catch(err){toast(authError(err.code),'error')}finally{registrationInProgress=false;$('#authSubmit').disabled=false}};
 $('#googleLogin').onclick=async()=>{if(!firebaseReady)return toast('Chưa cấu hình Firebase.','error');try{await fAuth.signInWithPopup(auth,new fAuth.GoogleAuthProvider())}catch(err){toast(authError(err.code),'error')}};
-$('#demoBtn').onclick=()=>bootstrapUser({uid:'demo-user',displayName:'Ân Yan Demo',email:'demo@ayk.local',isDemo:true}).catch(err=>toast(err.message,'error'));
-$('#logoutBtn').onclick=async()=>{stopTest();stopSolo();if(firebaseReady&&!state.user?.isDemo)await fAuth.signOut(auth);store.setStoreUser(null);state.game=null;state.user=null;state.profile=null;state.view='dashboard';document.body.classList.remove('admin-mode');$('#passwordSetup').classList.add('hidden');appEl.classList.add('hidden');loginScreen.classList.remove('hidden')};
+$('#demoBtn').onclick=()=>bootstrapUser(DEMO_USER).catch(err=>toast(err.message,'error'));
+$('#logoutBtn').onclick=async()=>{saved.remove('ayk_demo_session');saved.remove('ayk_resume_'+state.user.uid);stopTest();stopSolo();if(firebaseReady&&!state.user?.isDemo)await fAuth.signOut(auth);store.setStoreUser(null);state.game=null;state.user=null;state.profile=null;state.view='dashboard';document.body.classList.remove('admin-mode');$('#passwordSetup').classList.add('hidden');appEl.classList.add('hidden');loginScreen.classList.remove('hidden')};
 function authError(code=''){return ({'auth/invalid-credential':'Sai email hoặc mật khẩu.','auth/email-already-in-use':'Email đã được sử dụng.','auth/weak-password':'Mật khẩu cần ít nhất 6 ký tự.','auth/requires-recent-login':'Hãy đăng nhập Google lại rồi đặt mật khẩu.','auth/provider-already-linked':'Tài khoản đã có mật khẩu. Hãy đăng nhập lại.','auth/credential-already-in-use':'Email đã có tài khoản mật khẩu. Hãy đăng nhập bằng email để tiếp tục.','auth/popup-closed-by-user':'Bạn đã đóng cửa sổ Google.'}[code]||`Lỗi đăng nhập: ${code}`)}
 let pendingGoogleUser=null;
 function needsPassword(user){return user.providerData.some(p=>p.providerId==='google.com')&&!user.providerData.some(p=>p.providerId==='password')}
 async function handleAuthenticatedUser(user){
   if(needsPassword(user)){
-    pendingGoogleUser=user;loginScreen.classList.add('hidden');appEl.classList.add('hidden');$('#passwordSetup').classList.remove('hidden');
+    finishLoading();pendingGoogleUser=user;loginScreen.classList.add('hidden');appEl.classList.add('hidden');$('#passwordSetup').classList.remove('hidden');
     $('#setupIdentity').textContent=`Chào ${user.displayName||'bạn'}. Đặt mật khẩu cho ${user.email} để hoàn tất tài khoản.`;
     $('#setupPassword').focus();return;
   }
@@ -277,22 +294,26 @@ $('#passwordSetupForm').onsubmit=async e=>{
   }catch(err){toast(authError(err.code),'error')}finally{$('#setupSubmit').disabled=false;$('#setupSubmit').textContent='Hoàn tất & bắt đầu học →'}
 };
 $('#setupLogout').onclick=async()=>{await fAuth.signOut(auth);pendingGoogleUser=null;$('#passwordSetupForm').reset();$('#passwordSetup').classList.add('hidden');loginScreen.classList.remove('hidden')};
-if(firebaseReady)fAuth.onAuthStateChanged(auth,user=>{if(registrationInProgress)return;if(user)handleAuthenticatedUser(user).catch(err=>{console.error(err);toast('Không tải được tài khoản: '+err.message,'error')});else if(!state.user?.isDemo){pendingGoogleUser=null;$('#passwordSetup').classList.add('hidden');appEl.classList.add('hidden');loginScreen.classList.remove('hidden')}});
-
-function renderIdeas(){
- const groups=[...new Set(learningIdeas.map(i=>i.group))];
- const items=learningIdeas.filter(i=>(state.ideaGroup==='all'||i.group===state.ideaGroup)&&`${i.name} ${i.description}`.toLowerCase().includes(state.ideaSearch.toLowerCase()));
- viewRoot.innerHTML=`${pageTitle('100 ý tưởng học tiếng Anh','10 nhóm ý tưởng để phát triển AYK. 3 trò chơi hiện đã chơi được; các mục khác là đề xuất.','<button class="btn primary" data-go="games">Vào trò chơi →</button>')}<div class="toolbar"><input id="ideaSearch" class="form-control" placeholder="Tìm ý tưởng…" aria-label="Tìm ý tưởng" value="${esc(state.ideaSearch)}"><select id="ideaGroup" class="form-control" aria-label="Nhóm ý tưởng"><option value="all">Tất cả nhóm</option>${groups.map(g=>`<option ${g===state.ideaGroup?'selected':''}>${esc(g)}</option>`).join('')}</select><span class="badge">${items.length}/100 ý tưởng</span></div><div class="idea-grid">${items.map(i=>`<article class="panel idea-card"><div class="flex between"><span class="idea-number">${String(i.id).padStart(2,'0')}</span><span class="badge">${i.game?'Chơi được':'Ý tưởng phát triển'}</span></div><small>${esc(i.group)}</small><h3>${esc(i.name)}</h3><p class="muted">${esc(i.description)}</p>${i.game?`<button class="link-btn" data-game="${i.game}">Chơi với từ của buổi học →</button>`:''}</article>`).join('')||empty('Không có ý tưởng phù hợp.')}</div>`;
- $('#ideaSearch').oninput=e=>{const pos=e.target.selectionStart;state.ideaSearch=e.target.value;renderIdeas();$('#ideaSearch').focus();$('#ideaSearch').setSelectionRange(pos,pos)};
- $('#ideaGroup').onchange=e=>{state.ideaGroup=e.target.value;renderIdeas()};bindCommon();bindGameStarts();
+async function restoreSession(user){
+  if(registrationInProgress)return;
+  try{
+    if(user)await handleAuthenticatedUser(user);
+    else if(saved.get('ayk_demo_session'))await bootstrapUser(DEMO_USER);
+    else if(!state.user?.isDemo){pendingGoogleUser=null;$('#passwordSetup').classList.add('hidden');showLogin()}
+  }catch(err){console.error(err);finishLoading();$('#authLoading').classList.remove('hidden');$('#loadingMessage').textContent='Chưa tải được dữ liệu. Phiên đăng nhập vẫn được giữ; thử tải lại trang.';$('#loadingRetry').classList.remove('hidden')}
 }
+$('#loadingRetry').onclick=()=>window.location.reload();
+if(firebaseReady)fAuth.onAuthStateChanged(auth,restoreSession,()=>{showLogin();toast('Không khôi phục được phiên đăng nhập. Hãy thử lại.','error')});
+else restoreSession(null);
+
 function startLearningGame(type){
  let words=shuffle(wordsOfSession());if(type==='match')words=[...new Map(words.map(w=>[w.meaning,w])).values()];
- if(words.length<(type==='match'?2:1))return toast('Buổi này chưa đủ từ. Hãy chọn buổi khác.','error');
+ if(words.length<(['match','listening'].includes(type)?2:1))return toast('Buổi này chưa đủ từ. Hãy chọn buổi khác.','error');
  words=words.slice(0,type==='match'?6:10);
  state.game={type,words,index:0,correct:0,attempts:0,answered:false,selected:[],matched:[],busy:false,done:false};
  if(type==='match')state.game.cards=shuffle(words.flatMap(w=>[{id:`${w.id}-word`,wordId:w.id,text:w.word},{id:`${w.id}-meaning`,wordId:w.id,text:w.meaning}]));
  else state.game.scrambled=shuffle([...words[0].word]).join('');
+ if(type==='listening')state.game.options=shuffle(words.slice(0,4));
  navigate('games');
 }
 function bindGameStarts(){$$('[data-game]').forEach(b=>b.onclick=()=>startLearningGame(b.dataset.game))}
@@ -303,14 +324,19 @@ async function recordGameAnswer(word,correct){
 }
 function renderGames(){
  const g=state.game;
- if(!g){viewRoot.innerHTML=`${pageTitle('Chơi một chút, nhớ lâu hơn.','Trò chơi lấy từ vựng trong buổi bạn chọn. Thay buổi để luyện nội dung mới.')}<div class="toolbar"><select id="gameLesson" class="form-control" aria-label="Buổi chơi">${state.lessons.map(l=>`<option value="${l.number}" ${l.number===state.session?'selected':''}>${esc(l.name)} · ${esc(categoryName(l.categoryId))}</option>`).join('')}</select><span class="badge">${wordsOfSession().length} từ trong buổi</span></div><div class="game-grid"><article class="panel game-entry"><span class="game-symbol">▦</span><span class="badge">GHI NHỚ</span><h2>Ghép từ với nghĩa</h2><p>Ghép các cặp thẻ. Mỗi lần chọn đúng giúp bạn nhớ thêm một từ.</p><button class="btn primary" data-game="match">Chơi ghép thẻ →</button></article><article class="panel game-entry"><span class="game-symbol">♫</span><span class="badge">NGHE & CHÍNH TẢ</span><h2>Nghe và viết từ</h2><p>Nghe phát âm, xem nghĩa rồi viết đúng từ tiếng Anh.</p><button class="btn primary" data-game="spelling">Luyện nghe viết →</button></article><article class="panel game-entry"><span class="game-symbol">Aa</span><span class="badge">CHỮ CÁI</span><h2>Xếp chữ thành từ</h2><p>Giải mã bộ chữ bị trộn với gợi ý nghĩa tiếng Việt.</p><button class="btn primary" data-game="scramble">Giải mã từ →</button></article></div><div class="panel section-gap"><h3>Góc ý tưởng phát triển</h3><p class="muted">Khám phá 100 đề xuất cho nghe, nói, đọc, viết, lớp học và trò chơi.</p><button class="btn secondary" data-go="ideas">Xem 100 ý tưởng →</button></div>`;$('#gameLesson').onchange=e=>{state.session=Number(e.target.value);renderGames()};bindCommon();bindGameStarts();return}
- const title={match:'Ghép từ với nghĩa',spelling:'Nghe và viết từ',scramble:'Xếp chữ thành từ'}[g.type];
+ if(!g){viewRoot.innerHTML=`${pageTitle('Chơi một chút, nhớ lâu hơn.','Chọn buổi học, rồi khám phá cách luyện bạn thích.')}<div class="toolbar"><select id="gameLesson" class="form-control" aria-label="Buổi chơi">${state.lessons.map(l=>`<option value="${l.number}" ${l.number===state.session?'selected':''}>${esc(l.name)} · ${esc(categoryName(l.categoryId))}</option>`).join('')}</select><span class="badge">${wordsOfSession().length} từ trong buổi</span></div>${gameShelf()}<div class="panel section-gap practice-shortcuts"><span>✦ Thêm một cách học</span><button class="btn secondary" data-go="review">Ôn từ khó ↗</button><button class="btn secondary" data-go="solo">Thử thách Solo ↗</button><button class="btn secondary" data-go="exercises">Trắc nghiệm nhanh ↗</button></div>`;$('#gameLesson').onchange=e=>{state.session=Number(e.target.value);saved.set('ayk_resume_'+state.user.uid,{view:'games',session:state.session});renderGames()};bindCommon();bindGameStarts();return}
+ const title={match:'Ghép từ với nghĩa',spelling:'Nghe và viết từ',scramble:'Xếp chữ thành từ',listening:'Tai nghe tinh tường',missing:'Chữ nào còn thiếu?'}[g.type];
  if(g.done){viewRoot.innerHTML=`${pageTitle('Một bước tiến mới!',esc(lessonName(state.session)))}<div class="panel quiz-card score-box"><span class="game-symbol">✦</span><h2>${esc(title)}</h2><div class="score-number">${g.correct}/${g.words.length}</div><p class="muted">${g.type==='match'?'Cặp thẻ đã ghép':'Từ viết đúng'} · ${g.attempts} lượt trả lời</p><div class="flex gap-8" style="justify-content:center"><button class="btn primary" id="gameAgain">Chơi lại</button><button class="btn ghost" id="gameBack">Chọn trò khác</button></div></div>`;$('#gameAgain').onclick=()=>startLearningGame(g.type);$('#gameBack').onclick=()=>{state.game=null;renderGames()};return}
  if(g.type==='match'){
  viewRoot.innerHTML=`${pageTitle(title,`${esc(lessonName(state.session))} · ${g.correct}/${g.words.length} cặp`, '<button class="btn ghost" id="gameBack">Chọn trò khác</button>')}<div class="panel quiz-card"><p class="muted">Chọn một từ và nghĩa tương ứng. Bạn có thể thử lại, không giới hạn thời gian.</p><div class="match-grid">${g.cards.map(c=>`<button class="match-card ${g.selected.includes(c.id)?'selected':''} ${g.matched.includes(c.wordId)?'matched':''}" data-match="${esc(c.id)}" ${g.busy||g.matched.includes(c.wordId)?'disabled':''}>${esc(c.text)}${g.matched.includes(c.wordId)?' ✓':''}</button>`).join('')}</div><p class="game-feedback" aria-live="polite">${esc(g.feedback||'Sẵn sàng? Tìm cặp đầu tiên nhé.')}</p></div>`;
  $$('[data-match]').forEach(b=>b.onclick=async()=>{if(g.busy||g.selected.includes(b.dataset.match))return;g.selected.push(b.dataset.match);if(g.selected.length<2){renderGames();return}g.busy=true;g.attempts++;const [a,c]=g.selected.map(id=>g.cards.find(x=>x.id===id));const correct=a.wordId===c.wordId;try{if(correct){await recordGameAnswer(g.words.find(w=>w.id===a.wordId),true);g.matched.push(a.wordId);g.correct++;g.feedback='Đúng rồi! Bạn đã tìm được một cặp.'}else g.feedback='Chưa đúng. Hãy chọn lại hai thẻ nhé.';g.selected=[];g.done=g.correct===g.words.length}catch(err){g.selected=[];g.feedback='Chưa lưu được tiến độ: '+err.message}finally{g.busy=false;if(state.view==='games'&&state.game===g)renderGames()}});
+ }else if(g.type==='listening'){
+ const w=g.words[g.index];viewRoot.innerHTML=`${pageTitle(title,`${esc(lessonName(state.session))} · Từ ${g.index+1}/${g.words.length}`,'<button class="btn ghost" id="gameBack">Chọn trò khác</button>')}<div class="panel quiz-card"><button class="listen-game" id="gameListen">♫ <span>Nghe từ</span></button><p class="muted">Nghe và chọn từ tiếng Anh tương ứng.</p><div class="match-grid">${g.options.map(v=>`<button class="match-card ${g.answered&&v.id===w.id?'matched':''}" data-listen-choice="${esc(v.id)}" ${g.answered||g.busy?'disabled':''}>${esc(v.word)}</button>`).join('')}</div>${g.answered?`<p class="game-feedback">${g.lastCorrect?'Đúng rồi!':'Đáp án:'} ${esc(w.word)} · ${esc(w.meaning)}</p><button class="btn secondary" id="gameNext">Tiếp tục →</button>`:''}</div>`;
+ $('#gameListen').onclick=()=>speak(w.word);
+ $$('[data-listen-choice]').forEach(b=>b.onclick=async()=>{if(g.busy||g.answered)return;g.busy=true;try{const correct=b.dataset.listenChoice===w.id;await recordGameAnswer(w,correct);g.correct+=correct?1:0;g.attempts++;g.lastCorrect=correct;g.answered=true}catch(err){toast(err.message,'error')}finally{g.busy=false;if(state.game===g&&state.view==='games')renderGames()}});
+ $('#gameNext')?.addEventListener('click',()=>{g.index++;g.answered=false;g.done=g.index>=g.words.length;if(!g.done){const word=g.words[g.index];g.options=shuffle([word,...shuffle(g.words.filter(v=>v.id!==word.id)).slice(0,3)])}renderGames()});
  }else{
- const w=g.words[g.index];viewRoot.innerHTML=`${pageTitle(title,`${esc(lessonName(state.session))} · Từ ${g.index+1}/${g.words.length}`,'<button class="btn ghost" id="gameBack">Chọn trò khác</button>')}<div class="panel quiz-card word-game"><span class="badge">${esc(w.meaning)}</span>${g.type==='scramble'?`<div class="scrambled-word">${esc(g.scrambled)}</div>`:'<button class="listen-game" id="gameListen">♫ <span>Nghe từ</span></button>'}<form id="wordGameForm"><label class="muted" for="gameAnswer">Từ tiếng Anh của bạn</label><input class="form-control" id="gameAnswer" required autocomplete="off" autocapitalize="none" spellcheck="false" ${g.answered?'disabled':''}><button class="btn primary section-gap" ${g.answered||g.busy?'disabled':''}>Kiểm tra đáp án</button></form>${g.answered?`<p class="game-feedback" aria-live="polite">${g.lastCorrect?'Đúng rồi!':'Đáp án đúng:'} <b>${esc(w.word)}</b></p><p class="muted">${esc(w.example||'')}</p><button class="btn secondary" id="gameNext">${g.index+1===g.words.length?'Xem kết quả':'Từ tiếp theo →'}</button>`:''}</div>`;
+ const w=g.words[g.index];viewRoot.innerHTML=`${pageTitle(title,`${esc(lessonName(state.session))} · Từ ${g.index+1}/${g.words.length}`,'<button class="btn ghost" id="gameBack">Chọn trò khác</button>')}<div class="panel quiz-card word-game"><span class="badge">${esc(w.meaning)}</span>${g.type==='missing'?`<div class="scrambled-word">${esc([...w.word].map((c,i)=>i===Math.floor(w.word.length/2)?'_':c).join(''))}</div><p class="muted">Viết từ đầy đủ vào ô bên dưới.</p>`:g.type==='scramble'?`<div class="scrambled-word">${esc(g.scrambled)}</div>`:'<button class="listen-game" id="gameListen">♫ <span>Nghe từ</span></button>'}<form id="wordGameForm"><label class="muted" for="gameAnswer">Từ tiếng Anh của bạn</label><input class="form-control" id="gameAnswer" required autocomplete="off" autocapitalize="none" spellcheck="false" ${g.answered?'disabled':''}><button class="btn primary section-gap" ${g.answered||g.busy?'disabled':''}>Kiểm tra đáp án</button></form>${g.answered?`<p class="game-feedback" aria-live="polite">${g.lastCorrect?'Đúng rồi!':'Đáp án đúng:'} <b>${esc(w.word)}</b></p><p class="muted">${esc(w.example||'')}</p><button class="btn secondary" id="gameNext">${g.index+1===g.words.length?'Xem kết quả':'Từ tiếp theo →'}</button>`:''}</div>`;
  $('#gameListen')?.addEventListener('click',()=>speak(w.word));
  $('#wordGameForm').onsubmit=async e=>{e.preventDefault();if(g.answered||g.busy)return;g.busy=true;const answer=$('#gameAnswer').value.trim().toLowerCase();const correct=answer===w.word.trim().toLowerCase();try{await recordGameAnswer(w,correct);g.attempts++;g.correct+=correct?1:0;g.lastCorrect=correct;g.answered=true}catch(err){toast(err.message,'error')}finally{g.busy=false;if(state.view==='games'&&state.game===g)renderGames()}};
  $('#gameNext')?.addEventListener('click',()=>{g.index++;g.answered=false;g.done=g.index>=g.words.length;if(!g.done)g.scrambled=shuffle([...g.words[g.index].word]).join('');renderGames()});

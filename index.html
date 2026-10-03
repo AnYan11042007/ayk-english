@@ -8,12 +8,13 @@
   <title>AYK English</title>
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="icon" href="./assets/icons/icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="./assets/css/styles.css?v=curriculum-v4" />
+  <link rel="stylesheet" href="./assets/css/styles.css?v=play-v5" />
 </head>
 <body>
   <div id="toast" class="toast" aria-live="polite"></div>
 
-  <div id="loginScreen" class="auth-screen">
+  <div id="authLoading" class="auth-loading" role="status"><span class="loading-brand">AYK ✦</span><div class="loading-orbit" aria-hidden="true"></div><p id="loadingMessage">Đang mở góc học của bạn…</p><button id="loadingRetry" class="btn secondary hidden" type="button">Tải lại trang</button></div>
+  <div id="loginScreen" class="auth-screen hidden">
     <div class="auth-art">
       <div class="brand brand-large"><span class="brand-mark">A</span><span>AYK <b>English</b></span></div>
       <div class="auth-copy">
@@ -72,7 +73,6 @@
         <button data-view="tests" class="nav-item"><span>▤</span>Kiểm tra</button>
         <button data-view="solo" class="nav-item"><span>🏆</span>Solo bài</button>
         <button data-view="games" class="nav-item"><span>♧</span>Trò chơi học từ</button>
-        <button data-view="ideas" class="nav-item"><span>✦</span>100 ý tưởng</button>
         <button data-view="admin" id="adminNav" class="nav-item hidden"><span>⚙</span>Nội dung & giáo viên</button>
       </nav>
       <div class="sidebar-progress">
@@ -105,6 +105,6 @@
 
   <dialog id="modal" class="modal"><div id="modalContent"></div></dialog>
 
-  <script type="module" src="./assets/js/app.js?v=curriculum-v4"></script>
+  <script type="module" src="./assets/js/app.js?v=play-v5"></script>
 </body>
 </html>
