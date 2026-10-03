@@ -1,8 +1,8 @@
 import { firebaseReady, functions, fFunctions } from './firebase.js';
-import { isLocalMode } from './store.js?v=lookup-v10';
+import { isLocalMode } from './store.js?v=lookup-v11';
 import { starterVocabulary } from './starter-data.js';
 
-import { normalizeVocabularyInput, googleTranslateUrl, readDictionaryEntries } from './vocabulary.js?v=lookup-v10';
+import { normalizeVocabularyInput, googleTranslateUrl, readDictionaryEntries } from './vocabulary.js?v=lookup-v11';
 export { normalizeVocabularyInput, googleTranslateUrl };
 
 const dictionary=Object.fromEntries(starterVocabulary.map(item=>[item.word,item]));
@@ -46,7 +46,7 @@ export async function aiLookup(input,parts){
   if(local){
     const available=details.partsOfSpeech.length?details.partsOfSpeech:[local.pos];
     const selected=parsed.partsOfSpeech.filter(p=>available.includes(p));
-    const partsOfSpeech=selected.length?selected:[local.pos];
+    const partsOfSpeech=selected.length?selected:(parsed.partsOfSpeech.length?[local.pos]:available);
     const chosen=details.senses.filter(s=>partsOfSpeech.includes(s.pos)&&s.meaning);
     const meaning=chosen.length===1?chosen[0].meaning:chosen.map(s=>`(${s.pos}) ${s.meaning}`).join('; ');
     return {...local,word:parsed.word,meaning,example:chosen.find(s=>s.example)?.example||'',imageSearchKeyword:partsOfSpeech[0]==='n'?parsed.word:'',imageMeaning:chosen[0]?.meaning||'',pos:partsOfSpeech[0],partsOfSpeech,availablePartsOfSpeech:available,suggestedPos:local.pos,source:'local-dictionary',senses:chosen,note:'Từ điển có sẵn · Google Dịch tự động chưa được kích hoạt.'};

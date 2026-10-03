@@ -1,9 +1,9 @@
 import {defaultCategories, buildLessons, categoryForWord} from './curriculum.js';
 import { firebaseReady, auth, fAuth } from './firebase.js';
 import { firebaseConfig, isFirebaseConfigured } from './firebase-config.js';
-import * as store from './store.js?v=lookup-v10';
-import { aiLookup, searchCommonsImages, normalizeVocabularyInput, googleTranslateUrl } from './ai.js?v=lookup-v10';
-import { POS_TYPES, vocabularyParts, vocabularyPosLabel } from './vocabulary.js?v=lookup-v10';
+import * as store from './store.js?v=lookup-v11';
+import { aiLookup, searchCommonsImages, normalizeVocabularyInput, googleTranslateUrl } from './ai.js?v=lookup-v11';
+import { POS_TYPES, vocabularyParts, vocabularyPosLabel } from './vocabulary.js?v=lookup-v11';
 
 const $ = (s,root=document)=>root.querySelector(s);
 const $$ = (s,root=document)=>[...root.querySelectorAll(s)];
