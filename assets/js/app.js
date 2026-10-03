@@ -2,7 +2,7 @@ import {defaultCategories, buildLessons, categoryForWord} from './curriculum.js'
 import {learningIdeas} from './ideas.js';
 import { firebaseReady, auth, fAuth } from './firebase.js';
 import { firebaseConfig, isFirebaseConfigured } from './firebase-config.js';
-import * as store from './store.js';
+import * as store from './store.js?v=curriculum-v4';
 import { aiLookup, searchCommonsImages } from './ai.js';
 
 const $ = (s,root=document)=>root.querySelector(s);
