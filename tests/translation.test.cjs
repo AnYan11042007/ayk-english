@@ -1,0 +1,21 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const c={console:{warn(){}},firebaseReady:false,isLocalMode:()=>true,functions:{},fFunctions:{httpsCallable:()=>async()=>({data:{meaning:'[Demo] Nghĩa tiếng Việt của “mystery”'}})}};vm.createContext(c);
+vm.runInContext(fs.readFileSync('assets/js/starter-data.js','utf8').replace(/export /g,''),c);
+vm.runInContext(fs.readFileSync('assets/js/ai.js','utf8').replace(/^import .*;\n/gm,'').replace(/export /g,''),c);
+const run=s=>vm.runInContext(s,c);
+(async()=>{
+ assert.equal(run("normalizeVocabularyInput(' Basic(n) ').word"),'basic');
+ assert.equal(run("normalizeVocabularyInput(' Basic(n) ').pos"),'n');
+ assert.equal(run("normalizeVocabularyInput('take off','v').word"),'take off');
+ const basic=await run("aiLookup('basic(n)','n')");assert.equal(basic.meaning,'cơ bản, đơn giản');assert.equal(basic.suggestedPos,'adj');assert(!basic.imageSearchKeyword);
+ assert.equal((await run("aiLookup('book','n')")).meaning,'quyển sách');
+ assert.equal(run("googleTranslateUrl('basic(n)')"),'https://translate.google.com/?sl=en&tl=vi&text=basic&op=translate');
+ assert(run("googleTranslateUrl('take off')").includes('text=take%20off'));
+ await assert.rejects(run("aiLookup('mystery','n')"),/Google Dịch/);
+ c.firebaseReady=true;c.isLocalMode=()=>false;
+ await assert.rejects(run("aiLookup('mystery','n')"),/Google Dịch/);
+ c.fFunctions.httpsCallable=()=>async()=>({data:{meaning:'bí ẩn',ipa:'/test/',example:'A mystery.'}});
+ assert.equal((await run("aiLookup('mystery','n')")).meaning,'bí ẩn');
+ const app=fs.readFileSync('assets/js/app.js','utf8');assert(!app.includes('state.adminImages[0]?.url'));assert(app.includes('id="googleTranslateBtn"'));assert(app.includes('id="clearImageBtn"'));
+ console.log('PASS: word/POS parsing, basic meaning and adjective suggestion, encoded Google Translate links, unknown/demo rejection, cloud result, explicit image selection.');
+})().catch(e=>{console.error(e);process.exitCode=1});

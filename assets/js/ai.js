@@ -1,27 +1,38 @@
 import { firebaseReady, functions, fFunctions } from './firebase.js';
-import { isLocalMode } from './store.js';
+import { isLocalMode } from './store.js?v=translate-v9';
+import { starterVocabulary } from './starter-data.js';
 
-export async function aiLookup(word,pos){
-  if(!firebaseReady || isLocalMode()) return demoLookup(word,pos);
-  try{
-    const callable=fFunctions.httpsCallable(functions,'lookupVocabulary');
-    const res=await callable({word,pos});
-    return res.data;
-  }catch(err){
-    console.warn('AI Function unavailable, using local fallback',err);
-    return demoLookup(word,pos,true);
-  }
+export function normalizeVocabularyInput(input,pos='n'){
+  const match=String(input||'').trim().match(/^(.*?)\s*\((n|v|adj|adv)\)\s*$/i);
+  return {word:(match?match[1]:String(input||'')).trim().toLowerCase(),pos:match?match[2].toLowerCase():pos};
 }
-
-function demoLookup(word,pos,fromError=false){
-  const simple={
-    adventure:{meaning:'cuộc phiêu lưu, cuộc mạo hiểm',ipa:'/ədˈven.tʃər/',example:'It was an unforgettable adventure.',imageSearchKeyword:'adventure travel mountains'},
-    improve:{meaning:'cải thiện, tiến bộ',ipa:'/ɪmˈpruːv/',example:'I want to improve my English.',imageSearchKeyword:'learning improvement study'},
-    confident:{meaning:'tự tin',ipa:'/ˈkɒn.fɪ.dənt/',example:'She feels confident when speaking English.',imageSearchKeyword:'confident student speaking'},
-    airport:{meaning:'sân bay',ipa:'/ˈeə.pɔːt/',example:'We arrived at the airport early.',imageSearchKeyword:'airport terminal airplane'}
-  };
-  const found=simple[word.toLowerCase()]||{meaning:`[Demo] Nghĩa tiếng Việt của “${word}”`,ipa:'',example:`Example sentence with ${word}.`,imageSearchKeyword:`${word} concept`};
-  return {...found,word,pos,note:fromError?'Cloud Function chưa hoạt động nên đang dùng dữ liệu dự phòng.':'Bản demo AI. Deploy Cloud Function để dùng Gemini thật.'};
+export function googleTranslateUrl(input){
+  const {word}=normalizeVocabularyInput(input);
+  return `https://translate.google.com/?sl=en&tl=vi&text=${encodeURIComponent(word)}&op=translate`;
+}
+const dictionary=Object.fromEntries(starterVocabulary.map(item=>[item.word,item]));
+Object.assign(dictionary,{
+  basic:{meaning:'cơ bản, đơn giản',pos:'adj',ipa:'/ˈbeɪ.sɪk/',example:'We start with basic English.'},
+  basics:{meaning:'những kiến thức cơ bản, nền tảng',pos:'n',ipa:'/ˈbeɪ.sɪks/',example:'Let’s learn the basics of English.'},
+  adventure:{meaning:'cuộc phiêu lưu, cuộc mạo hiểm',pos:'n',ipa:'/ədˈven.tʃər/',example:'It was an unforgettable adventure.'},
+  improve:{meaning:'cải thiện, tiến bộ',pos:'v',ipa:'/ɪmˈpruːv/',example:'I want to improve my English.'},
+  confident:{meaning:'tự tin',pos:'adj',ipa:'/ˈkɒn.fɪ.dənt/',example:'She feels confident when speaking English.'},
+  airport:{meaning:'sân bay',pos:'n',ipa:'/ˈeə.pɔːt/',example:'We arrived at the airport early.'}
+});
+export async function aiLookup(input,pos){
+  const parsed=normalizeVocabularyInput(input,pos);
+  if(!parsed.word)throw new Error('Nhập từ tiếng Anh trước.');
+  const local=dictionary[parsed.word];
+  if(local)return {...local,word:parsed.word,pos:parsed.pos,suggestedPos:local.pos,note:`Từ điển có sẵn.${local.pos!==parsed.pos?' Gợi ý loại từ: '+local.pos+'. Bạn có thể chỉnh lại theo ngữ cảnh.':''}`};
+  if(firebaseReady&&!isLocalMode()){
+    try{
+      const res=await fFunctions.httpsCallable(functions,'lookupVocabulary')(parsed);
+      const data=res.data;
+      if(!data?.meaning||/\[demo\]|nghĩa tiếng việt của/i.test(data.meaning)||data.meaning.trim().toLowerCase()===parsed.word)throw new Error('Kết quả chưa có nghĩa tiếng Việt.');
+      return {...data,...parsed,note:'Gợi ý AI — kiểm tra nghĩa và loại từ theo ngữ cảnh.'};
+    }catch(err){console.warn('Vocabulary lookup unavailable',err);}
+  }
+  throw new Error('Chưa tra được từ này. Bấm Google Dịch để xem nghĩa tiếng Việt rồi điền vào ô nghĩa.');
 }
 
 export async function searchCommonsImages(keyword){
