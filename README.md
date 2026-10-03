@@ -295,3 +295,6 @@ https://TEN_GITHUB.github.io/ayk-english/
 - Trò chơi ghép từ, nghe viết và xếp chữ lấy từ buổi đã chọn. Đáp án được ghi vào tiến độ của học viên. Phát âm dùng speech synthesis của trình duyệt.
 - Trang học có hành trình theo buổi và 5 trò chơi: ghép thẻ, nghe viết, xếp chữ, nghe chọn đáp án, điền chữ còn thiếu. Danh sách ý tưởng trước đây lưu ở `IDEAS.md`, không hiển thị trên web.
 - Firebase giữ phiên bằng browserLocalPersistence. Khi reload, web chờ khôi phục tài khoản rồi mở trang gần nhất. Phiên demo cũng được lưu đến khi đăng xuất; không lưu mật khẩu trong localStorage.
+
+### Làm lại nội dung lớp học
+Admin có nút Dọn toàn bộ nội dung: tạo bản lưu ở contentArchives rồi làm trống vocabulary/categories/lessons bằng một lần cập nhật. Tài khoản, tiến độ, kết quả kiểm tra giữ nguyên. Khôi phục bản lưu chỉ được phép khi thư viện trống. Database thật trống sẽ không tự nạp từ mẫu. Cần Publish database.rules.json mới trước khi dùng tính năng dọn. Giáo viên có thể sửa/xóa từ và quản lý danh mục, buổi học; chỉ admin dọn/khôi phục toàn bộ.

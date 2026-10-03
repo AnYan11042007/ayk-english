@@ -65,6 +65,16 @@
       ".read": "auth != null",
       ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'teacher')",
       ".validate": "newData.isNumber() && newData.val() > 0"
+    },
+    "contentArchives": {
+      ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+      ".indexOn": [
+        "createdAt"
+      ],
+      "$id": {
+        ".validate": "newData.hasChildren(['createdAt','createdBy']) && newData.child('createdAt').isNumber() && newData.child('createdBy').val() === auth.uid"
+      }
     }
   }
 }

@@ -37,7 +37,7 @@ export async function getProfile(user) {
 export async function getVocabulary() {
   if (isLocalMode()) return [...demoState.vocabulary].sort(sortVocab);
   const snap = await fDb.get(fDb.ref(db,'vocabulary'));
-  return (snap.exists() ? rows(snap) : starterVocabulary.map(v => ({...v}))).sort(sortVocab);
+  return rows(snap).sort(sortVocab);
 }
 
 export async function saveVocabulary(item) {
@@ -131,4 +131,39 @@ export async function saveLesson(item,maxNumber=0){
   const row={number,name,categoryId:item.categoryId,description:String(item.description||'').trim(),updatedAt:Date.now()};
   if(isLocalMode()){demoState.lessons||=[];const i=demoState.lessons.findIndex(x=>x.number===number);i<0?demoState.lessons.push(row):demoState.lessons.splice(i,1,row);saveDemo();return row}
   await fDb.update(fDb.ref(db,`lessons/${number}`),{...row,updatedAt:fDb.serverTimestamp()});return row;
+}
+
+// Keep removed content recoverable; an empty cloud library stays empty.
+async function requireContentAdmin(){if((await getProfile(activeUser)).role!=='admin')throw new Error('Chỉ admin được dọn hoặc khôi phục toàn bộ nội dung.')}
+export async function resetLearningContent(){
+  await requireContentAdmin();
+  const vocabulary=await getVocabulary(),curriculum=await getCurriculum();
+  if(curriculum.needsRules)throw new Error('Cần cập nhật quy tắc Firebase trước khi dọn nội dung.');
+  const archive={vocabulary,categories:curriculum.categories,lessons:curriculum.lessons,createdAt:Date.now(),createdBy:activeUser.uid};
+  if(isLocalMode()){demoState.contentArchive=archive;demoState.vocabulary=[];demoState.categories=[];demoState.lessons=[];saveDemo();return archive}
+  const archiveRef=fDb.push(fDb.ref(db,'contentArchives'));
+  await fDb.update(fDb.ref(db,''),{['contentArchives/'+archiveRef.key]:archive,vocabulary:null,categories:null,lessons:null});
+  return archive;
+}
+export async function restoreLearningContent(){
+  await requireContentAdmin();
+  if((await getVocabulary()).length||(await getCurriculum()).lessons.length||(await getCurriculum()).categories.length)throw new Error('Chỉ khôi phục khi thư viện đang trống để tránh ghi đè nội dung mới.');
+  let archive;
+  if(isLocalMode())archive=demoState.contentArchive;
+  else{const q=fDb.query(fDb.ref(db,'contentArchives'),fDb.orderByChild('createdAt'),fDb.limitToLast(1));archive=rows(await fDb.get(q))[0]}
+  if(!archive)throw new Error('Chưa có bản lưu để khôi phục.');
+  if(isLocalMode()){demoState.vocabulary=archive.vocabulary||[];demoState.categories=archive.categories||[];demoState.lessons=archive.lessons||[];saveDemo();return}
+  const toObject=(items,key)=>Object.fromEntries((items||[]).map(item=>{const {id,...row}=item;return [item[key],row]}));
+  await fDb.update(fDb.ref(db,''),{vocabulary:toObject(archive.vocabulary,'id'),categories:toObject(archive.categories,'id'),lessons:toObject(archive.lessons,'number')});
+}
+export async function deleteLesson(number){
+ const words=(await getVocabulary()).filter(w=>Number(w.session)===Number(number));
+ if(words.length)throw new Error('Chuyển hoặc xóa các từ trong buổi trước khi xóa buổi.');
+ if(isLocalMode()){demoState.lessons=(demoState.lessons||[]).filter(l=>l.number!==Number(number));saveDemo();return}
+ await fDb.remove(fDb.ref(db,`lessons/${number}`));
+}
+export async function deleteCategory(id){
+ const c=await getCurriculum();if(c.lessons.some(l=>l.categoryId===id))throw new Error('Chuyển hoặc xóa các buổi trong danh mục trước.');
+ if(isLocalMode()){demoState.categories=(demoState.categories||[]).filter(c=>c.id!==id);saveDemo();return}
+ await fDb.remove(fDb.ref(db,`categories/${id}`));
 }

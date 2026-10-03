@@ -1,0 +1,17 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+let root={},seq=0;const clone=v=>v==null?v:JSON.parse(JSON.stringify(v));
+const get=p=>p.split('/').filter(Boolean).reduce((v,k)=>v?.[k],root);
+function put(p,v){const parts=p.split('/').filter(Boolean);let target=root;for(const key of parts.slice(0,-1))target=target[key]??={};if(v==null)delete target[parts.at(-1)];else target[parts.at(-1)]=clone(v)}
+const snapshot=v=>({exists:()=>v!=null,val:()=>clone(v??null)});
+const fDb={ref:(db,path)=>({path,key:path.split('/').at(-1)}),get:async r=>{if(r.query){const all=Object.entries(get(r.path)||{}).sort((a,b)=>a[1].createdAt-b[1].createdAt).slice(-1);return snapshot(Object.fromEntries(all))}return snapshot(get(r.path))},push:r=>({path:r.path+'/id'+(++seq),key:'id'+seq}),update:async(r,v)=>{for(const [key,value]of Object.entries(v))put([r.path,key].filter(Boolean).join('/'),value)},remove:async r=>put(r.path,null),query:r=>({...r,query:true}),orderByChild:()=>null,limitToLast:()=>null,serverTimestamp:()=>123};
+const memory=new Map();const c={console,fDb,firebaseReady:true,db:{},starterVocabulary:[{id:'sample',word:'book',meaning:'sách',pos:'n',session:1}],localStorage:{getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,v)}};vm.createContext(c);vm.runInContext(fs.readFileSync('assets/js/store.js','utf8').replace(/^import .*;\n/gm,'').replace(/export /g,''),c);const run=s=>vm.runInContext(s,c);
+(async()=>{
+ root={users:{admin:{uid:'admin',role:'admin'},teacher:{uid:'teacher',role:'teacher'}},vocabulary:{word1:{word:'hello',meaning:'xin chào',pos:'n',session:1}},categories:{cat1:{name:'Giao tiếp'}},lessons:{1:{number:1,name:'Chào hỏi',categoryId:'cat1'}},progress:{student:{word1:{mastered:true}}},testResults:{student:{test1:{score:90}}}};
+ run("setStoreUser({uid:'teacher'})");await assert.rejects(run('resetLearningContent()'),/Chỉ admin/);assert(root.vocabulary.word1);
+ run("setStoreUser({uid:'admin'})");await assert.rejects(run('deleteCategory("cat1")'),/buổi/);await assert.rejects(run('deleteLesson(1)'),/các từ/);
+ const before=clone(root);await run('resetLearningContent()');assert.equal((await run('getVocabulary()')).length,0);assert.equal((await run('getCurriculum()')).categories.length,0);assert.deepEqual(root.users,before.users);assert.deepEqual(root.progress,before.progress);assert.deepEqual(root.testResults,before.testResults);assert.equal(Object.keys(root.contentArchives).length,1);
+ await run('restoreLearningContent()');assert.deepEqual(root.vocabulary,before.vocabulary);assert.deepEqual(root.categories,before.categories);assert.deepEqual(root.lessons,before.lessons);await assert.rejects(run('restoreLearningContent()'),/thư viện đang trống/);
+ await run('saveVocabulary({id:"word1",word:"hello",meaning:"chào bạn",pos:"n",session:1})');assert.equal(root.vocabulary.word1.meaning,'chào bạn');await run('deleteVocabulary("word1")');assert.equal((await run('getVocabulary()')).length,0);await run('deleteLesson(1)');await run('deleteCategory("cat1")');assert(!root.categories.cat1);
+ run("setStoreUser({uid:'demo',isDemo:true})");await run('resetLearningContent()');assert.equal((await run('getVocabulary()')).length,0);await run('restoreLearningContent()');assert.equal((await run('getVocabulary()')).length,1);
+ console.log('PASS: no sample resurrection, edit/delete, admin-only archived reset, exact content restore, preserve accounts/history, nonempty category/lesson guards, demo reset/restore.');
+})().catch(e=>{console.error(e);process.exitCode=1});
