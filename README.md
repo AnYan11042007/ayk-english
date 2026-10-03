@@ -16,7 +16,7 @@ Trước khi dùng thật, cần hoàn tất trong Firebase Console:
 2. Authentication → Settings → Authorized domains → thêm `anyan11042007.github.io`.
 3. Realtime Database hiện có: `english-ayk-default-rtdb`, khu vực Singapore. Trong tab Rules, dán nội dung `database.rules.json` rồi Publish; hoặc dùng Firebase CLI như hướng dẫn bên dưới.
 4. Sau khi web hoạt động, đăng ký tài khoản chính, đổi `role` của tài khoản đó thành `admin` trong Realtime Database rồi nhập từ mẫu.
-5. Google Dịch tự động cần triển khai Functions và bật Cloud Translation theo mục 6; cấu hình web không tự kích hoạt dịch tự động.
+5. Tra từ tự động dùng MyMemory + Wiktionary trực tiếp từ web; không cần triển khai Functions hoặc nâng gói Firebase. Xem mục 6.
 
 GitHub Pages: sau khi source có trong nhánh `main`, chọn Settings → Pages → Source: GitHub Actions. Workflow có sẵn trong `.github/workflows/pages.yml`.
 
@@ -34,7 +34,7 @@ Kết nối GitHub đã được cấp quyền truy cập repository. Sau khi so
 - Kiểm tra 10 / 20 / 30 câu, có đếm giờ, chấm điểm và lưu lịch sử.
 - Solo 60 giây, lưu điểm và bảng xếp hạng.
 - Admin thêm / sửa / xóa từ vựng.
-- Admin: chọn nhiều loại từ; máy chủ Google Cloud Translation dịch nghĩa, Free Dictionary cung cấp IPA/ví dụ. Web tìm và gắn ảnh gợi ý theo nghĩa, có thể sửa hoặc bỏ ảnh.
+- Admin: chọn nhiều loại từ; MyMemory dịch nghĩa, Wiktionary cung cấp IPA/loại từ/ví dụ. Web tìm và gắn ảnh gợi ý theo nghĩa, có thể sửa hoặc bỏ ảnh.
 - PWA: có thể Add to Home Screen trên điện thoại.
 - Chế độ demo bằng `localStorage` khi chưa cấu hình Firebase.
 
@@ -179,11 +179,13 @@ Trong Admin có nút **Nhập dữ liệu mẫu** để đẩy 24 từ mẫu và
 
 ---
 
-# 6. Google Dịch tự động
+# 6. Tra từ tự động miễn phí
 
-Xem [GOOGLE-TRANSLATE-SETUP.md](GOOGLE-TRANSLATE-SETUP.md) để bật Cloud Translation và triển khai máy chủ.
-Máy chủ dùng xác thực Google Cloud của Firebase, không đặt khóa dịch vào trình duyệt.
-Chức năng này chưa hoạt động chỉ nhờ cấu hình Firebase Web hoặc xuất bản GitHub Pages.
+Giao diện hiện dùng MyMemory + Wiktionary, không cần API key và không phụ thuộc Firebase Cloud Functions. Xem [AUTOMATIC-LOOKUP.md](AUTOMATIC-LOOKUP.md).
+
+MyMemory có hạn mức dùng miễn phí. Web lưu kết quả trên máy 7 ngày để giảm số lần gọi. Khi hết hạn mức hoặc mất mạng, web báo rõ và không lưu thông báo lỗi thành nghĩa từ.
+
+`functions/` và [GOOGLE-TRANSLATE-SETUP.md](GOOGLE-TRANSLATE-SETUP.md) là phương án Google Cloud tùy chọn; không cần bật để dùng chức năng tra từ hiện tại.
 
 # 7. Đưa lên GitHub Pages
 

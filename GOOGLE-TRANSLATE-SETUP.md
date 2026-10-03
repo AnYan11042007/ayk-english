@@ -1,4 +1,6 @@
-# Bật Google Dịch tự động cho AYK English
+# Phương án Google Cloud tùy chọn cho AYK English
+
+Giao diện hiện tại dùng MyMemory + Wiktionary, không gọi Function trong tài liệu này. Không cần nâng Blaze để dùng chức năng tra từ đang có. Tài liệu được giữ làm tham khảo nếu sau này muốn chuyển sang Google Cloud.
 
 ## Trạng thái
 GitHub Pages chỉ phục vụ giao diện. `lookupVocabulary` trong `functions/` gọi **Google Cloud Translation Basic v2** qua máy chủ Firebase bằng OAuth của service account. Phiên bản mã này không tự bật thanh toán hoặc tự triển khai máy chủ.
