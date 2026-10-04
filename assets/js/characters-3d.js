@@ -1,0 +1,33 @@
+let engine;
+function loadEngine(){return engine||=new Promise((resolve,reject)=>{if(window.THREE)return resolve(window.THREE);const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js';s.onload=()=>resolve(window.THREE);s.onerror=()=>{engine=null;s.remove();reject(new Error('Không tải được 3D. Kiểm tra mạng và thử lại.'));};document.head.append(s);});}
+export async function mountCharacter(container,character){
+ const T=await loadEngine();if(!container.isConnected)return {act(){},dispose(){}};
+ const canvas=document.createElement('canvas');canvas.setAttribute('aria-label',`Nhân vật 3D ${character.name}`);container.replaceChildren(canvas);
+ let renderer;try{renderer=new T.WebGLRenderer({canvas,alpha:true,antialias:true});}catch{container.textContent='Thiết bị chưa hỗ trợ 3D';return {act(){},dispose(){}};}
+ renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.outputEncoding=T.sRGBEncoding;
+ const scene=new T.Scene(),camera=new T.PerspectiveCamera(35,1,.1,50);camera.position.set(0,1.8,7.5);camera.lookAt(0,1.35,0);
+ scene.add(new T.HemisphereLight(0xeeefff,0x5f437f,1.3));const light=new T.DirectionalLight(0xfff0df,1.5);light.position.set(-3,5,4);scene.add(light);const rim=new T.DirectionalLight(0xaabaff,1.5);rim.position.set(3,3,-3);scene.add(rim);
+ const material=color=>new T.MeshStandardMaterial({color,roughness:.3,metalness:.17});const main=material(character.color),white=material('#eee5fc'),dark=material('#26223c'),glow=new T.MeshStandardMaterial({color:character.color,emissive:character.color,emissiveIntensity:.7}),pink=material('#f3a5c8');
+ const bot=new T.Group();scene.add(bot);const sphere=(parent,x,y,z,sx,sy,sz,mat)=>{const o=new T.Mesh(new T.SphereGeometry(1,24,16),mat);o.position.set(x,y,z);o.scale.set(sx,sy,sz);parent.add(o);return o;};
+ sphere(bot,0,1,0,.5,.6,.35,main);sphere(bot,0,1,.3,.31,.32,.09,white);sphere(bot,0,1.07,.39,.11,.11,.035,glow);
+ const head=new T.Group();head.position.y=1.92;bot.add(head);sphere(head,0,0,0,.65,.53,.45,main);if(character.kind==='robot')sphere(head,0,0,.38,.53,.32,.08,dark);
+ const eyes=[-1,1].map(s=>sphere(head,s*.21,.02,.43,.065,.095,.04,character.kind==='robot'?glow:dark));[-1,1].forEach(s=>sphere(head,s*.38,-.13,.41,.07,.03,.02,pink));
+ const smile=new T.Mesh(new T.TorusGeometry(.11,.016,8,20,Math.PI),character.kind==='robot'?glow:dark);smile.rotation.z=Math.PI;smile.position.set(0,-.12,.465);head.add(smile);
+ const arms=[-1,1].map(s=>{const arm=new T.Group();arm.position.set(s*.48,1.35,0);bot.add(arm);sphere(arm,s*.09,-.23,0,.13,.28,.13,main);sphere(arm,s*.12,-.44,0,.16,.16,.16,white);sphere(bot,s*.24,.32,.05,.19,.22,.24,main);return arm;});
+ const ears=[];if(['cat','fox','rabbit'].includes(character.kind))[-1,1].forEach(s=>{const ear=new T.Mesh(character.kind==='rabbit'?new T.SphereGeometry(1,16,12):new T.ConeGeometry(.2,.45,3),main);ear.position.set(s*.35,.52,0);if(character.kind==='rabbit')ear.scale.set(.14,.45,.13);ear.rotation.z=-s*.2;head.add(ear);ears.push(ear);});
+ if(character.kind==='robot'){sphere(head,0,.68,0,.07,.13,.07,glow);[-1,1].forEach(s=>sphere(head,s*.66,0,0,.1,.16,.17,white));}
+ const tail=['cat','fox','dragon'].includes(character.kind)?sphere(bot,.48,.85,-.3,.17,.53,.18,main):null;if(tail)tail.rotation.z=-.7;
+ const wings=[];if(['dragon','angel'].includes(character.kind))[-1,1].forEach(s=>{const wing=new T.Group();wing.position.set(s*.35,1.3,-.25);bot.add(wing);for(let i=0;i<4;i++){const feather=sphere(wing,s*(.23+i*.16),.15+i*.08,0,.15,.42-i*.05,.065,character.kind==='angel'?white:main);feather.rotation.z=-s*.65;}wings.push(wing);});
+ const level=['C','B','A','S','SS'].indexOf(character.rank);let halo;if(level>=2){halo=new T.Mesh(new T.TorusGeometry(.46,.025,8,48),glow);halo.position.set(0,2.65,0);halo.rotation.x=Math.PI/2;bot.add(halo);}
+ if(level===4){[-1,0,1].forEach(s=>{const crown=new T.Mesh(new T.ConeGeometry(.095,.3,5),glow);crown.position.set(s*.2,2.46,.05);bot.add(crown);});}
+ const particles=new T.Group();scene.add(particles);for(let i=0;i<(level+1)*5;i++)sphere(particles,0,0,0,.025,.025,.025,i%2?glow:pink);
+ const platform=new T.Mesh(new T.CylinderGeometry(.85,.95,.09,48),material('#76639c'));platform.position.y=.04;scene.add(platform);
+ let action='wave',started=performance.now(),disposed=false;const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+ const resize=()=>{const w=container.clientWidth||220,h=container.clientHeight||240;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();};const ro=new ResizeObserver(resize);ro.observe(container);resize();
+ function act(value){action=value;started=performance.now();}
+ renderer.setAnimationLoop(now=>{if(disposed||document.hidden)return;const t=(now-started)/1000,idle=reduced?0:Math.sin(now/650);bot.position.y=idle*.04;bot.rotation.y=.14;bot.rotation.z=0;head.rotation.z=idle*.03;arms[0].rotation.z=.12;arms[1].rotation.z=-.12;eyes.forEach(e=>e.scale.y=.095);ears.forEach((e,i)=>e.rotation.z=(i?-.2:.2)+idle*.08);wings.forEach((w,i)=>w.rotation.y=(i?1:-1)*idle*.25);if(tail)tail.rotation.x=idle*.25;if(halo)halo.rotation.z=now/1800;
+  if(t<3){if(action==='wave')arms[1].rotation.z=2.3+(reduced?0:Math.sin(t*10)*.3);if(['happy','dance'].includes(action)){bot.position.y=reduced?0:Math.abs(Math.sin(t*6))*.28;arms[0].rotation.z=-2;arms[1].rotation.z=2;bot.rotation.z=action==='dance'?Math.sin(t*7)*.18:0;}if(action==='spin')bot.rotation.y=t*Math.PI*2;if(action==='cheer'){head.rotation.z=-.12;arms[1].rotation.z=1.3;}if(action==='magic'||action==='heart'){arms[0].rotation.z=-1.3;arms[1].rotation.z=1.3;bot.position.y=.15;}}
+  particles.visible=level>=2||(['magic','happy','heart'].includes(action)&&t<3);particles.children.forEach((p,i)=>{const a=i/particles.children.length*Math.PI*2+now/1400;p.position.set(Math.cos(a)*(1+level*.09),1.3+Math.sin(a*2+now/900)*.7,Math.sin(a)*.5);});renderer.render(scene,camera);
+ });
+ return {act,dispose(){if(disposed)return;disposed=true;ro.disconnect();renderer.setAnimationLoop(null);scene.traverse(o=>{o.geometry?.dispose();if(o.material) o.material.dispose();});renderer.dispose();renderer.forceContextLoss();canvas.remove();}};
+}

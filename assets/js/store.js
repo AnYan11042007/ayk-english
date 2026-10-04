@@ -1,3 +1,4 @@
+import { emptyGacha, awardTicket, applyDraw, CHARACTERS } from './gacha-core.js?v=gacha-v21';
 import { firebaseReady, db, fDb } from './firebase.js';
 import { starterVocabulary } from './starter-data.js';
 
@@ -188,3 +189,17 @@ export async function deleteCategory(id){
  if(isLocalMode()){demoState.categories=(demoState.categories||[]).filter(c=>c.id!==id);saveDemo();return}
  await fDb.remove(fDb.ref(db,`categories/${id}`));
 }
+
+// Wallet and collection share one transaction, so concurrent tabs cannot overspend.
+export async function getGacha(user){
+ if(isLocalMode(user))return {...emptyGacha(),...(demoState.gachaByUser?.[user.uid]||{})};
+ return {...emptyGacha(),...((await fDb.get(fDb.ref(db,`users/${user.uid}/gacha`))).val()||{})};
+}
+async function changeGacha(user,transform){
+ if(isLocalMode(user)){demoState.gachaByUser||={};const next=transform(demoState.gachaByUser[user.uid]||emptyGacha());if(!next)throw new Error('Bạn chưa có vé AYK.');demoState.gachaByUser[user.uid]=next;saveDemo();return next;}
+ const tx=await fDb.runTransaction(fDb.ref(db,`users/${user.uid}/gacha`),current=>transform(current||emptyGacha()));
+ if(!tx.committed)throw new Error('Bạn chưa có vé AYK hoặc thao tác không hợp lệ.');return {...emptyGacha(),...tx.snapshot.val()};
+}
+export async function awardGachaTicket(user,result){return changeGacha(user,g=>awardTicket(g,result));}
+export async function drawGacha(user,drawId,characterId){return changeGacha(user,g=>applyDraw(g,drawId,characterId));}
+export async function equipGacha(user,id){return changeGacha(user,g=>!id?{...g,equipped:''}:g.inventory?.[id]&&CHARACTERS.some(c=>c.id===id)?{...g,equipped:id}:undefined);}

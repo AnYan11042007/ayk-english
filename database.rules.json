@@ -34,7 +34,11 @@
         "$resultId": {
           ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || (auth.uid === $uid && !data.exists() && newData.exists()))",
           ".validate": "newData.child('uid').val() === $uid && newData.child('score').isNumber() && newData.child('score').val() >= 0 && newData.child('score').val() <= 100"
-        }
+        },
+        ".write": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        ".indexOn": [
+          "createdAt"
+        ]
       }
     },
     "soloScores": {
