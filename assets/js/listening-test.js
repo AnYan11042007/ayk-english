@@ -1,15 +1,25 @@
-export const LISTENING_RULES=Object.freeze({count:20,questionMs:15000,replayMs:5000,reviewMs:15000,gradingMs:12000,passPercent:75});
+export const LISTENING_RULES=Object.freeze({count:20,questionMs:30000,replayMs:10000,reviewMs:15000,gradingMs:12000,passPercent:75});
 export function normalizeExamText(value){return String(value||'').normalize('NFC').trim().toLocaleLowerCase('vi-VN').replace(/[’‘]/g,"'").replace(/\s+/g,' ')}
+export function pronunciationStress(ipa){
+  // Remove language labels and use one transcription, never count letters in “British”.
+  const clean=String(ipa||'').replace(/\([^)]*\)/g,'').replace(/\b(?:UK|US|British|American|English)\s*:?/gi,'').trim();
+  const first=clean.match(/[/\[]([^/\]]+)[/\]]/)?.[1]||clean.split(/[,;|]/)[0].trim();
+  if(!first)return {stress:null,syllables:null};
+  const nuclei=value=>(value.match(/[aeiouyɑɐɒæəɛɜɝɞɪʊʌɔœøɯɨɤɶɚɘɵ]+[ːˑ̃]*/giu)||[]).length+(value.match(/[nlm]̩/gu)||[]).length;
+  const syllables=nuclei(first),marker=first.indexOf('ˈ');
+  return {stress:marker>=0?nuclei(first.slice(0,marker))+1:syllables===1?1:null,syllables:syllables||null};
+}
 export function getWordStress(word){
-  const explicit=Number(word.stress);
-  if(Number.isInteger(explicit)&&explicit>=1&&explicit<=20)return explicit;
+  const inferred=pronunciationStress(word.ipa),explicit=Number(word.stress);
+  if(Number.isInteger(explicit)&&explicit>=1&&explicit<=20&&(!inferred.syllables||explicit<=inferred.syllables))return explicit;
   if(/\s/.test(String(word.word||'')))return null;
-  const ipa=String(word.ipa||'').split(/[,;]/)[0].trim().replace(/^[/\[]|[/\]]$/g,'');
-  if(!ipa)return null;
-  const nuclei=s=>(s.match(/[aeiouyɑɐɒæəɛɜɝɞɪʊʌɔœøɯɨɤɶɚɘɵ]+[ːˑ̃]*/giu)||[]).length;
-  const marker=ipa.indexOf('ˈ');
-  if(marker>=0)return nuclei(ipa.slice(0,marker))+1;
-  return nuclei(ipa)===1?1:null;
+  return inferred.stress;
+}
+export function acceptedWordStresses(word){
+  const primary=getWordStress(word);if(!primary)return [];
+  const variants=Array.isArray(word.stressVariants)?word.stressVariants:[];
+  const syllables=pronunciationStress(word.ipa).syllables;
+  return [...new Set([primary,...variants.map(Number)].filter(n=>Number.isInteger(n)&&n>=1&&n<=20&&(!syllables||n<=syllables)))];
 }
 export function acceptedVietnameseMeanings(word){
   const meaning=String(word.meaning||'').replace(/\((?:n|v|adj|adv)\)/gi,'').trim();
@@ -23,10 +33,10 @@ export function listeningPool(vocabulary,selectedSessions){
     if(!selected.has(Number(word.session))||!key||/\s/.test(key)||!stress||!meanings.length)continue;
     if(unique.has(key)){
       const existing=unique.get(key);
-      if(existing.stress===stress)existing.meanings=[...new Set([...existing.meanings,...meanings])];
+      if(existing.stress===stress){existing.stresses=[...new Set([...existing.stresses,...acceptedWordStresses(word)])];existing.meanings=[...new Set([...existing.meanings,...meanings])];}
       continue;
     }
-    unique.set(key,{wordId:word.id,word:word.word,stress,meanings,meaning:word.meaning,session:Number(word.session),ipa:word.ipa||''});
+    unique.set(key,{wordId:word.id,word:word.word,stress,stresses:acceptedWordStresses(word),meanings,meaning:word.meaning,session:Number(word.session),ipa:word.ipa||''});
   }
   return [...unique.values()];
 }
@@ -42,32 +52,38 @@ export function createListeningAttempt(vocabulary,selectedSessions,now=Date.now(
   }
   const remainder=randomize(pool.filter(w=>!initial.some(x=>x.wordId===w.wordId)),random);
   const questions=randomize([...initial,...remainder].slice(0,20),random);
-  return {attemptId:`listen-${now}-${random().toString(36).slice(2,10)}`,mode:'listening-stress',active:true,phase:'questions',sessions:[...new Set(selectedSessions.map(Number))],questions,answers:Array(20).fill(''),timedOut:Array(20).fill(false),spoken:Array(20).fill(0),startedAt:now,index:-1,reviewEndsAt:now+20*15000+15000};
+  return {attemptId:`listen-${now}-${random().toString(36).slice(2,10)}`,mode:'listening-stress',active:true,phase:'questions',sessions:[...new Set(selectedSessions.map(Number))],questions,answers:Array.from({length:20},()=>({english:'',stress:'',meaning:''})),timedOut:Array(20).fill(false),spoken:Array(20).fill(0),startedAt:now,index:-1,reviewEndsAt:now+LISTENING_RULES.count*LISTENING_RULES.questionMs+LISTENING_RULES.reviewMs};
 }
 export function listeningClock(attempt,now=Date.now()){
-  const elapsed=Math.max(0,now-attempt.startedAt),questionTotal=20*15000;
-  if(elapsed<questionTotal){const index=Math.floor(elapsed/15000),within=elapsed-index*15000;return {phase:'questions',index,window:Math.floor(within/5000),seconds:Math.ceil((15000-within)/1000),deadline:attempt.startedAt+(index+1)*15000};}
-  if(elapsed<questionTotal+15000)return {phase:'review',seconds:Math.ceil((questionTotal+15000-elapsed)/1000),deadline:attempt.reviewEndsAt};
-  return {phase:'grading',seconds:12,deadline:attempt.reviewEndsAt+12000};
+  const elapsed=Math.max(0,now-attempt.startedAt),questionTotal=LISTENING_RULES.count*LISTENING_RULES.questionMs;
+  if(elapsed<questionTotal){const index=Math.floor(elapsed/LISTENING_RULES.questionMs),within=elapsed-index*LISTENING_RULES.questionMs;return {phase:'questions',index,window:Math.floor(within/LISTENING_RULES.replayMs),seconds:Math.ceil((LISTENING_RULES.questionMs-within)/1000),deadline:attempt.startedAt+(index+1)*LISTENING_RULES.questionMs};}
+  if(elapsed<questionTotal+LISTENING_RULES.reviewMs)return {phase:'review',seconds:Math.ceil((questionTotal+LISTENING_RULES.reviewMs-elapsed)/1000),deadline:attempt.reviewEndsAt};
+  return {phase:'grading',seconds:LISTENING_RULES.gradingMs/1000,deadline:attempt.reviewEndsAt+LISTENING_RULES.gradingMs};
+}
+export function listeningAnswerFields(answer){
+  if(answer&&typeof answer==='object')return {english:String(answer.english||''),stress:String(answer.stress||''),meaning:String(answer.meaning||'')};
+  const match=String(answer||'').normalize('NFC').trim().match(/^(.+?)\s*(?:\+\s*)?\(\s*([1-9]\d?)\s*\)\s*:\s*(.+)$/u);
+  return match?{english:match[1].trim(),stress:match[2],meaning:match[3].trim()}:{english:'',stress:'',meaning:''};
 }
 export function parseListeningAnswer(answer){
-  const text=String(answer||'').normalize('NFC').trim();
-  const match=text.match(/^(.+?)\s*(?:\+\s*)?\(\s*([1-9]\d?)\s*\)\s*:\s*(.+)$/u);
-  if(!match)return null;
-  const word=normalizeExamText(match[1]);
-  if(/[()+:]/.test(word)||/[:()]/.test(match[3]))return null;
-  return {word,stress:Number(match[2]),meaning:normalizeExamText(match[3]).replace(/[.!?]+$/,'')};
+  const fields=listeningAnswerFields(answer),word=normalizeExamText(fields.english),stress=fields.stress.trim(),meaning=normalizeExamText(fields.meaning).replace(/[.!?]+$/,'');
+  if(!word||/[()+:]/.test(word)||!/^([1-9]\d?)$/.test(stress)||!meaning)return null;
+  return {word,stress:Number(stress),meaning};
 }
 export function gradeListeningAnswer(question,answer){
-  const parsed=parseListeningAnswer(answer);
-  const syntax=!!parsed;
-  const wordCorrect=syntax&&parsed.word===normalizeExamText(question.word);
-  const stressCorrect=syntax&&parsed.stress===question.stress;
-  const meaningCorrect=syntax&&question.meanings.includes(parsed.meaning);
-  return {syntax,wordCorrect,stressCorrect,meaningCorrect,correct:!!(syntax&&wordCorrect&&stressCorrect&&meaningCorrect)};
+  const fields=listeningAnswerFields(answer),parsed=parseListeningAnswer(fields),syntax=!!parsed;
+  const wordCorrect=normalizeExamText(fields.english)===normalizeExamText(question.word);
+  const stressCorrect=/^[1-9]\d?$/.test(fields.stress.trim())&&(question.stresses||[question.stress]).includes(Number(fields.stress));
+  const meaningCorrect=question.meanings.includes(normalizeExamText(fields.meaning).replace(/[.!?]+$/,''));
+  const feedback=[];
+  if(!wordCorrect)feedback.push(fields.english.trim()?`Từ tiếng Anh chưa đúng: “${fields.english}” → “${question.word}”.`:`Chưa điền từ tiếng Anh. Đáp án: ${question.word}.`);
+  if(!stressCorrect)feedback.push(fields.stress.trim()?`Trọng âm chưa đúng: “${fields.stress}” → ${(question.stresses||[question.stress]).join(' hoặc ')}.`:`Chưa điền trọng âm. Điền ${(question.stresses||[question.stress]).join(' hoặc ')}.`);
+  if(!meaningCorrect)feedback.push(fields.meaning.trim()?`Nghĩa “${fields.meaning}” chưa khớp nghĩa đã học. Chấp nhận: ${question.meanings.join('; ')}. Giữ đúng dấu tiếng Việt.`:`Chưa điền nghĩa tiếng Việt. Chấp nhận: ${question.meanings.join('; ')}.`);
+  if(!syntax&&wordCorrect&&stressCorrect&&meaningCorrect)feedback.push('Kiểm tra lại định dạng các ô.');
+  return {syntax,wordCorrect,stressCorrect,meaningCorrect,feedback,correct:!!(syntax&&wordCorrect&&stressCorrect&&meaningCorrect)};
 }
 export function gradeListeningAttempt(attempt){
-  const answers=attempt.questions.map((q,i)=>({wordId:q.wordId,word:q.word,answer:attempt.answers[i]||'',expected:`${q.word} (${q.stress}): ${q.meaning}`,timedOut:attempt.timedOut[i],...gradeListeningAnswer(q,attempt.answers[i])}));
+  const answers=attempt.questions.map((q,i)=>({wordId:q.wordId,word:q.word,answer:listeningAnswerFields(attempt.answers[i]),stresses:q.stresses||[q.stress],meanings:q.meanings,expectedFields:{english:q.word,stress:String(q.stress),meaning:q.meaning},expected:`${q.word} (${q.stress}): ${q.meaning}`,timedOut:attempt.timedOut[i],...gradeListeningAnswer(q,attempt.answers[i])}));
   const correct=answers.filter(a=>a.correct).length,score=correct*5;
-  return {attemptId:attempt.attemptId,mode:'listening-stress',sessions:attempt.sessions,total:20,correct,score,passed:score>=75,answers};
+  return {attemptId:attempt.attemptId,mode:'listening-stress',sessions:attempt.sessions,total:20,correct,score,passed:score>=LISTENING_RULES.passPercent,endedEarly:!!attempt.endedEarly,gradingMethod:'answer-key',answers};
 }

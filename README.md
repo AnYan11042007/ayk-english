@@ -268,11 +268,11 @@ Admin có nút Dọn toàn bộ nội dung: tạo bản lưu ở contentArchives
 
 ## Kiểm tra nghe và trọng âm
 
-- Trong Kiểm tra, tích một hoặc nhiều buổi; cần ít nhất 20 từ khác nhau có nghĩa và trọng âm. Bài chọn ngẫu nhiên 20 từ, ưu tiên lấy từ từng buổi đã chọn.
-- Đọc từ bằng giọng tiếng Anh của trình duyệt tại 0, 5, 10 giây; tự chuyển câu sau 15 giây. Đồng hồ dùng mốc thời gian thực, tiếp tục chạy khi chuyển tab.
-- Cú pháp: `english (1): nghĩa tiếng Việt`, cũng nhận `english + (1): nghĩa tiếng Việt`. Không phân biệt hoa/thường, chuẩn hóa Unicode; vẫn yêu cầu dấu tiếng Việt, đúng từ, trọng âm dạng số và nghĩa hợp lệ đã lưu. Mỗi câu phải đúng đủ các phần mới nhận 5 điểm.
-- Sau 20 câu có 15 giây rà soát tất cả câu trả lời. Chấm cục bộ ngay sau khi khóa bài, trong giới hạn 12 giây; lưu Firebase không chặn màn hình kết quả. Từ 15/20 (75%) là đạt, dưới mức này yêu cầu học lại.
-- Giáo viên có ô trọng âm và nghĩa khác được chấp nhận. Suy luận trọng âm từ IPA là hỗ trợ ban đầu, giáo viên cần kiểm tra; cụm nhiều từ và từ thiếu dữ liệu bị loại khỏi bài.
-- Kết quả lưu với mã bài duy nhất để thử lại khi lỗi mạng không tạo hai bản ghi. Đây là bài tự luyện trên trình duyệt, không phải bài thi có giám sát. Máy cần hỗ trợ Web Speech và có giọng đọc tiếng Anh.
-
-- Nếu giọng đọc trình duyệt không dùng được, bài tải trước 20 bản ghi âm từ Free Dictionary API/Wiktionary và chỉ tính giờ sau khi học viên bấm bắt đầu. Nguồn và giấy phép âm thanh có trong đối chiếu kết quả. Không tải được đủ âm thanh thì bài chưa bắt đầu.
+- Chọn một hoặc nhiều buổi có ít nhất 20 từ khác nhau đủ nghĩa và trọng âm. Bài chọn 20 từ ngẫu nhiên.
+- Mỗi câu 30 giây, đọc tại 0/10/20 giây. Có 3 ô riêng: tiếng Anh, trọng âm dạng số, tiếng Việt. Giữ nguyên chữ hoa/thường và Unicode; vẫn cần đúng chính tả, dấu tiếng Việt và nghĩa đã học.
+- Sau 20 câu có 15 giây rà soát. Nút bên trái **Bỏ bài & chấm ngay** khóa bài, chấm ngay, câu chưa làm tính là sai. Từ 15/20 (75%) là đạt.
+- Chấm cục bộ và giải thích riêng từng ô sai; kết quả hiện ngay trong giới hạn 12 giây. Lưu Firebase không chặn màn hình kết quả. Đây là chấm theo đáp án giáo viên, chưa sử dụng mô hình AI trên máy chủ.
+- Đối chiếu kết quả có nút nghe lại từng từ. Giọng đọc cần trình duyệt hỗ trợ; dự phòng tải bản ghi âm từ Free Dictionary API/Wiktionary. Nguồn/giấy phép được hiển thị. Nếu âm thanh chưa tải đủ thì bài chưa tính giờ, vẫn có thể bỏ bài.
+- Admin có nút mở Cambridge Anh–Việt và ô trọng âm tự điền khi tra từ. Hàm suy luận bỏ nhãn UK/US/British/American và chỉ dùng một phiên âm. Mục locate được đối chiếu thủ công với Cambridge, có trọng âm 2 hoặc 1; ví dụ do AYK soạn. Dữ liệu trọng âm lưu cũ vượt số âm tiết được loại bỏ khi suy luận và phải sửa trước khi lưu lại.
+- Tự tra hiện dùng dữ liệu đã duyệt + MyMemory/Wiktionary. API Cambridge và AI cần quyền/khóa trên máy chủ; không đặt khóa bí mật vào GitHub hoặc JavaScript phía khách. Chưa kích hoạt hai dịch vụ này.
+- Kết quả dùng mã bài duy nhất, tránh lưu trùng khi thử lại. Đây là bài tự luyện trên trình duyệt.

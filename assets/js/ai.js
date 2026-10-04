@@ -1,8 +1,10 @@
+import { getWordStress } from './listening-test.js?v=listening-v16';
 import { starterVocabulary } from './starter-data.js';
 
-import { normalizeVocabularyInput, googleTranslateUrl, readDictionaryEntries } from './vocabulary.js?v=listening-v15';
-import { readWiktionary, validateTranslation } from './lookup-sources.js?v=listening-v15';
+import { normalizeVocabularyInput, googleTranslateUrl, readDictionaryEntries } from './vocabulary.js?v=listening-v16';
+import { readWiktionary, validateTranslation } from './lookup-sources.js?v=listening-v16';
 export { normalizeVocabularyInput, googleTranslateUrl };
+export function cambridgeDictionaryUrl(input){const word=normalizeVocabularyInput(input).word;return word?`https://dictionary.cambridge.org/vi/dictionary/english-vietnamese/${encodeURIComponent(word)}`:'https://dictionary.cambridge.org/vi/dictionary/english-vietnamese/'}
 
 const dictionary=Object.fromEntries(starterVocabulary.map(item=>[item.word,item]));
 Object.assign(dictionary,{
@@ -11,6 +13,7 @@ Object.assign(dictionary,{
   adventure:{meaning:'cuộc phiêu lưu, cuộc mạo hiểm',pos:'n',ipa:'/ədˈven.tʃər/',example:'It was an unforgettable adventure.'},
   improve:{meaning:'cải thiện, tiến bộ',pos:'v',ipa:'/ɪmˈpruːv/',example:'I want to improve my English.'},
   confident:{meaning:'tự tin',pos:'adj',ipa:'/ˈkɒn.fɪ.dənt/',example:'She feels confident when speaking English.'},
+  locate:{meaning:'xác định vị trí; tìm vị trí; đặt tại',pos:'v',ipa:'/ləʊˈkeɪt/',stress:2,stressVariants:[2,1],example:'Can you locate my bag?',dictionarySource:'https://dictionary.cambridge.org/vi/dictionary/english-vietnamese/locate',reviewedCambridge:true},
   airport:{meaning:'sân bay',pos:'n',ipa:'/ˈeə.pɔːt/',example:'We arrived at the airport early.'}
 });
 const multipleSenses={
@@ -41,7 +44,7 @@ export async function translateText(text,source='en',target='vi'){
   const value=validateTranslation(await res.json());cacheWrite(key,value);return value;
 }
 export async function dictionaryLookup(word){
-  const key=`dictionary:${word}`;const cached=cacheRead(key);if(cached)return cached;
+  const key=`dictionary:v2:${word}`;const cached=cacheRead(key);if(cached)return cached;
   try{
     const query=new URLSearchParams({action:'parse',page:word,prop:'wikitext',format:'json',origin:'*',redirects:'1'});
     const res=await fetch(`https://en.wiktionary.org/w/api.php?${query}`,{signal:AbortSignal.timeout(10000)});
@@ -69,7 +72,7 @@ export async function aiLookup(input,parts){
     const partsOfSpeech=selected.length?selected:available;
     const senses=(local.senses||[local]).filter(s=>partsOfSpeech.includes(s.pos));
     const meaning=senses.length===1?senses[0].meaning:senses.map(s=>`(${s.pos}) ${s.meaning}`).join('; ');
-    return {...local,word:parsed.word,meaning,example:senses.find(s=>s.example)?.example||'',imageSearchKeyword:partsOfSpeech[0]==='n'?parsed.word:'',imageMeaning:senses[0]?.meaning||'',pos:partsOfSpeech[0],partsOfSpeech,availablePartsOfSpeech:available,source:'local-dictionary',senses,note:'Từ điển có sẵn · nghĩa và ví dụ có thể chỉnh trước khi lưu.'};
+    return {...local,word:parsed.word,meaning,example:senses.find(s=>s.example)?.example||'',imageSearchKeyword:partsOfSpeech[0]==='n'?parsed.word:'',imageMeaning:senses[0]?.meaning||'',pos:partsOfSpeech[0],partsOfSpeech,availablePartsOfSpeech:available,source:'local-dictionary',senses,stress:getWordStress({...local,word:parsed.word}),note:local.reviewedCambridge?'Mục locate đã đối chiếu Cambridge: nhấn âm 2 hoặc 1 tùy giọng, không có âm 3. Ví dụ do AYK soạn.':'Từ điển có sẵn · đã gợi ý trọng âm từ IPA; kiểm tra trước khi lưu.'};
   }
   const [dictionaryResult,translationResult]=await Promise.allSettled([dictionaryLookup(parsed.word),translateText(parsed.word)]);
   const details=dictionaryResult.status==='fulfilled'?dictionaryResult.value:{partsOfSpeech:[],senses:[],ipa:''};
@@ -87,7 +90,7 @@ export async function aiLookup(input,parts){
   const example=senses.find(s=>s.example)?.example||'';
   const imageSearchKeyword=await imageQuery(parsed.word,partsOfSpeech[0]==='v'?meaning:shortMeaning,partsOfSpeech,example);
   const warnings=[!available.length?'Chưa xác định được loại từ; bạn tự chọn loại phù hợp.':'',!example?'Nguồn chưa có ví dụ; bạn có thể bổ sung.':'',senses.length>1&&detailed.length<senses.length?'Bản dịch chung; kiểm tra nghĩa cho từng loại từ.':''].filter(Boolean).join(' ');
-  return {word:parsed.word,pos:partsOfSpeech[0]||'n',partsOfSpeech,availablePartsOfSpeech:available,meaning,shortMeaning,ipa:details.ipa||'',example,senses,imageSearchKeyword,imageMeaning:shortMeaning,source:translationResult.status==='fulfilled'?'mymemory':'wiktionary',dictionarySource:details.dictionarySource||'',translationSource:translationResult.status==='fulfilled'?'https://mymemory.translated.net/':details.dictionarySource||'',note:`${translationResult.status==='fulfilled'?'MyMemory':'Wiktionary'} · gợi ý Anh → Việt. ${warnings} Bạn có thể chỉnh trước khi lưu.`};
+  return {word:parsed.word,pos:partsOfSpeech[0]||'n',partsOfSpeech,availablePartsOfSpeech:available,meaning,shortMeaning,ipa:details.ipa||'',stress:getWordStress({word:parsed.word,ipa:details.ipa}),example,senses,imageSearchKeyword,imageMeaning:shortMeaning,source:translationResult.status==='fulfilled'?'mymemory':'wiktionary',dictionarySource:details.dictionarySource||'',translationSource:translationResult.status==='fulfilled'?'https://mymemory.translated.net/':details.dictionarySource||'',note:`${translationResult.status==='fulfilled'?'MyMemory':'Wiktionary'} · gợi ý Anh → Việt. ${warnings} Bạn có thể chỉnh trước khi lưu.`};
 }
 
 export async function searchCommonsImages(keyword){
