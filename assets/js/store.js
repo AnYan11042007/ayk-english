@@ -1,4 +1,4 @@
-import { emptyGacha, awardTicket, applyDraw, applySale, CHARACTERS } from './gacha-core.js?v=models-v24';
+import { emptyGacha, awardTicket, applyDraw, applySale, CHARACTERS } from './gacha-core.js?v=wallet-v25';
 import { firebaseReady, db, fDb } from './firebase.js';
 import { starterVocabulary } from './starter-data.js';
 
@@ -197,7 +197,12 @@ export async function getGacha(user){
 }
 async function changeGacha(user,transform){
  if(isLocalMode(user)){demoState.gachaByUser||={};const next=transform(demoState.gachaByUser[user.uid]||emptyGacha());if(!next)throw new Error('Bạn chưa có vé AYK.');demoState.gachaByUser[user.uid]=next;saveDemo();return next;}
- const tx=await fDb.runTransaction(fDb.ref(db,`users/${user.uid}/gacha`),current=>transform(current||emptyGacha()));
+ const walletRef=fDb.ref(db,`users/${user.uid}/gacha`);
+ // RTDB may call the updater with null before loading its local transaction cache.
+ // Read the wallet first; keep that snapshot for the initial cache-miss callback.
+ // Server conflict retries still use the latest current value, so changes stay atomic.
+ const initial=(await fDb.get(walletRef)).val();
+ const tx=await fDb.runTransaction(walletRef,current=>transform(current??initial??emptyGacha()));
  if(!tx.committed)throw new Error('Bạn chưa có vé AYK hoặc thao tác không hợp lệ.');return {...emptyGacha(),...tx.snapshot.val()};
 }
 export async function awardGachaTicket(user,result){return changeGacha(user,g=>awardTicket(g,result));}

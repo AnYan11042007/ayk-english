@@ -14,4 +14,13 @@ await run("sellGacha({uid:'seller'},'basic',{mochi:2,pico:1})");assert.equal(dat
 await run("sellGacha({uid:'seller'},'rare',{luna:1,nova:1,aurora:1})");assert.equal(data['users/seller/gacha'].tickets,7);assert.equal(data['users/seller/gacha'].equipped,'');assert.equal(data['users/seller/gacha'].inventory.minto,2);
 for(const value of ['{minto:3}','{minto:-3}','{minto:1.5}','{unknown:3}'])await assert.rejects(run(`sellGacha({uid:'seller'},'invalid'+${JSON.stringify(value)},${value})`));assert.equal(data['users/seller/gacha'].tickets,7);
 console.log('PASS: rarity, ticket rewards, draw deduplication, wallet isolation, 3 mixed C/B = 1 ticket, A/S/SS = 1/2/3, sale retry guard, oversell rejection and last-copy companion removal.');
+// Real RTDB invokes the first updater with null when the transaction cache is cold.
+const originalTransaction=fDb.runTransaction;fDb.runTransaction=async(ref,fn)=>{if(fn(null)===undefined)return {committed:false};return originalTransaction(ref,fn);};
+data['users/cold/gacha']={tickets:3,inventory:{nova:1},equipped:'nova'};
+await run("drawGacha({uid:'cold'},'cold-draw','mochi')");assert.equal(data['users/cold/gacha'].tickets,2);assert.equal(data['users/cold/gacha'].inventory.mochi,1);
+await run("equipGacha({uid:'cold'},'mochi')");assert.equal(data['users/cold/gacha'].equipped,'mochi');
+await run("awardGachaTicket({uid:'cold'},{mode:'listening-stress',total:20,score:75,attemptId:'cold-pass'})");assert.equal(data['users/cold/gacha'].tickets,3);assert.equal(data['users/cold/gacha'].inventory.nova,1);
+await run("awardGachaTicket({uid:'cold'},{mode:'listening-stress',total:20,score:75,attemptId:'cold-pass'})");assert.equal(data['users/cold/gacha'].tickets,3);
+await run("sellGacha({uid:'cold'},'cold-sale',{nova:1})");assert.equal(data['users/cold/gacha'].tickets,5);
+console.log('PASS: cold Firebase cache preserves the existing wallet, draw/equip/sale work, exactly 75% adds one ticket, duplicate saves add none.');
 })().catch(e=>{console.error(e);process.exitCode=1});

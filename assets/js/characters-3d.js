@@ -1,4 +1,4 @@
-import { createDistinctModel } from './character-models.js?v=models-v24';
+import { createDistinctModel } from './character-models.js?v=wallet-v25';
 let engine;
 // Project the same meshes on a 2D canvas when a browser disables WebGL.
 function softwareRenderer(T,canvas){

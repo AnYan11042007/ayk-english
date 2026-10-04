@@ -1,15 +1,15 @@
-import { renderGacha, renderInventory, stopGachaPreview, showCompanion, clearCompanion, reactCompanion } from './gacha-ui.js?v=models-v24';
-import { studySummary, addStudyWord } from './motivation.js?v=models-v24';
-import { animateStudyView, celebrateStudy, setupStudyEffects } from './effects.js?v=models-v24';
-import { RAPID_MODES, createRapidGame, beginRapidQuestion, submitRapidAnswer, advanceRapidGame } from './rapid-games.js?v=models-v24';
+import { renderGacha, renderInventory, stopGachaPreview, showCompanion, clearCompanion, reactCompanion } from './gacha-ui.js?v=wallet-v25';
+import { studySummary, addStudyWord } from './motivation.js?v=wallet-v25';
+import { animateStudyView, celebrateStudy, setupStudyEffects } from './effects.js?v=wallet-v25';
+import { RAPID_MODES, createRapidGame, beginRapidQuestion, submitRapidAnswer, advanceRapidGame } from './rapid-games.js?v=wallet-v25';
 import {defaultCategories, buildLessons, categoryForWord} from './curriculum.js';
 import { firebaseReady, auth, fAuth } from './firebase.js';
 import { firebaseConfig, isFirebaseConfigured } from './firebase-config.js';
-import * as store from './store.js?v=models-v24';
-import { aiLookup, searchCommonsImages, normalizeVocabularyInput, googleTranslateUrl, cambridgeDictionaryUrl } from './ai.js?v=models-v24';
-import { POS_TYPES, vocabularyParts, vocabularyPosLabel } from './vocabulary.js?v=models-v24';
-import { lookupPronunciationAudio, loadPronunciationElement } from './pronunciation-audio.js?v=models-v24';
-import { LISTENING_RULES, getWordStress, pronunciationStress, listeningAnswerFields, listeningPool, createListeningAttempt, listeningClock, parseListeningAnswer, gradeListeningAttempt } from './listening-test.js?v=models-v24';
+import * as store from './store.js?v=wallet-v25';
+import { aiLookup, searchCommonsImages, normalizeVocabularyInput, googleTranslateUrl, cambridgeDictionaryUrl } from './ai.js?v=wallet-v25';
+import { POS_TYPES, vocabularyParts, vocabularyPosLabel } from './vocabulary.js?v=wallet-v25';
+import { lookupPronunciationAudio, loadPronunciationElement } from './pronunciation-audio.js?v=wallet-v25';
+import { LISTENING_RULES, getWordStress, pronunciationStress, listeningAnswerFields, listeningPool, createListeningAttempt, listeningClock, parseListeningAnswer, gradeListeningAttempt } from './listening-test.js?v=wallet-v25';
 
 const $ = (s,root=document)=>root.querySelector(s);
 const $$ = (s,root=document)=>[...root.querySelectorAll(s)];
