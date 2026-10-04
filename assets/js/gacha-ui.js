@@ -1,6 +1,6 @@
-import {CHARACTERS,RARITIES,chooseCharacter,saleValue} from './gacha-core.js?v=inventory-v23';
-import {mountCharacter} from './characters-3d.js?v=inventory-v23';
-const labels={wave:'👋 Chào',happy:'🎉 Ăn mừng',spin:'↻ Xoay',cheer:'💜 Động viên',magic:'✨ Phép thuật',dance:'🎵 Nhảy múa',heart:'💖 Thả tim'};
+import {CHARACTERS,RARITIES,chooseCharacter,saleValue} from './gacha-core.js?v=models-v24';
+import {mountCharacter} from './characters-3d.js?v=models-v24';
+const labels={wave:'👋 Chào',happy:'🎉 Ăn mừng',spin:'↻ Xoay',cheer:'💜 Động viên',magic:'✨ Phép thuật',dance:'🎵 Nhảy múa',heart:'💖 Thả tim',fly:'🪽 Bay',roar:'🔥 Phun lửa'};
 let preview=null,companion=null,mascot=null,generation=0;
 export function stopGachaPreview(){generation++;preview?.dispose();preview=null;}
 export function clearCompanion(){companion?.dispose();companion=null;mascot?.remove();mascot=null;}

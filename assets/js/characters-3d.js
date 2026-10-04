@@ -1,3 +1,4 @@
+import { createDistinctModel } from './character-models.js?v=models-v24';
 let engine;
 // Project the same meshes on a 2D canvas when a browser disables WebGL.
 function softwareRenderer(T,canvas){
@@ -15,6 +16,12 @@ export async function mountCharacter(container,character){
  scene.add(new T.HemisphereLight(0xeeefff,0x5f437f,1.3));const light=new T.DirectionalLight(0xfff0df,1.5);light.position.set(-3,5,4);scene.add(light);const rim=new T.DirectionalLight(0xaabaff,1.5);rim.position.set(3,3,-3);scene.add(rim);
  const material=color=>new T.MeshStandardMaterial({color,roughness:.3,metalness:.17});const main=material(character.color),white=material('#eee5fc'),dark=material('#26223c'),glow=new T.MeshStandardMaterial({color:character.color,emissive:character.color,emissiveIntensity:.7}),pink=material('#f3a5c8');
  const bot=new T.Group();scene.add(bot);const sphere=(parent,x,y,z,sx,sy,sz,mat)=>{const o=new T.Mesh(new T.SphereGeometry(1,Math.max(sx,sy,sz)<.1?8:24,Math.max(sx,sy,sz)<.1?6:16),mat);o.position.set(x,y,z);o.scale.set(sx,sy,sz);parent.add(o);return o;};
+ if(['dragon','angel'].includes(character.kind)){
+  scene.remove(bot);const model=createDistinctModel(T,character);scene.add(model.root);let action='wave',started=performance.now(),disposed=false;
+  const resize=()=>{const w=container.clientWidth||220,h=container.clientHeight||240;renderer.setSize(w,h,false);camera.aspect=w/h;camera.position.z=w/h<.95?8.2:6.8;camera.lookAt(0,1.4,0);camera.updateProjectionMatrix();};const ro=new ResizeObserver(resize);ro.observe(container);resize();
+  renderer.setAnimationLoop(now=>{if(disposed||document.hidden)return;const quiet=matchMedia('(prefers-reduced-motion: reduce)').matches||document.body.classList.contains('low-motion');model.update(action,(now-started)/1000,now,quiet);renderer.render(scene,camera);});
+  return {act(value){action=value;started=performance.now();},dispose(){if(disposed)return;disposed=true;ro.disconnect();renderer.setAnimationLoop(null);scene.traverse(o=>{o.geometry?.dispose();if(o.material)o.material.dispose();});renderer.dispose();renderer.forceContextLoss();canvas.remove();}};
+ }
  sphere(bot,0,1,0,.5,.6,.35,main);sphere(bot,0,1,.3,.31,.32,.09,white);sphere(bot,0,1.07,.39,.11,.11,.035,glow);
  const head=new T.Group();head.position.y=1.92;bot.add(head);sphere(head,0,0,0,.65,.53,.45,main);if(character.kind==='robot')sphere(head,0,0,.38,.53,.32,.08,dark);
  const eyes=[-1,1].map(s=>sphere(head,s*.21,.02,.43,.065,.095,.04,character.kind==='robot'?glow:dark));[-1,1].forEach(s=>sphere(head,s*.38,-.13,.41,.07,.03,.02,pink));

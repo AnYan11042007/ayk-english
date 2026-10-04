@@ -1,15 +1,15 @@
-import { renderGacha, renderInventory, stopGachaPreview, showCompanion, clearCompanion, reactCompanion } from './gacha-ui.js?v=inventory-v23';
-import { studySummary, addStudyWord } from './motivation.js?v=inventory-v23';
-import { animateStudyView, celebrateStudy, setupStudyEffects } from './effects.js?v=inventory-v23';
-import { RAPID_MODES, createRapidGame, beginRapidQuestion, submitRapidAnswer, advanceRapidGame } from './rapid-games.js?v=inventory-v23';
+import { renderGacha, renderInventory, stopGachaPreview, showCompanion, clearCompanion, reactCompanion } from './gacha-ui.js?v=models-v24';
+import { studySummary, addStudyWord } from './motivation.js?v=models-v24';
+import { animateStudyView, celebrateStudy, setupStudyEffects } from './effects.js?v=models-v24';
+import { RAPID_MODES, createRapidGame, beginRapidQuestion, submitRapidAnswer, advanceRapidGame } from './rapid-games.js?v=models-v24';
 import {defaultCategories, buildLessons, categoryForWord} from './curriculum.js';
 import { firebaseReady, auth, fAuth } from './firebase.js';
 import { firebaseConfig, isFirebaseConfigured } from './firebase-config.js';
-import * as store from './store.js?v=inventory-v23';
-import { aiLookup, searchCommonsImages, normalizeVocabularyInput, googleTranslateUrl, cambridgeDictionaryUrl } from './ai.js?v=inventory-v23';
-import { POS_TYPES, vocabularyParts, vocabularyPosLabel } from './vocabulary.js?v=inventory-v23';
-import { lookupPronunciationAudio, loadPronunciationElement } from './pronunciation-audio.js?v=inventory-v23';
-import { LISTENING_RULES, getWordStress, pronunciationStress, listeningAnswerFields, listeningPool, createListeningAttempt, listeningClock, parseListeningAnswer, gradeListeningAttempt } from './listening-test.js?v=inventory-v23';
+import * as store from './store.js?v=models-v24';
+import { aiLookup, searchCommonsImages, normalizeVocabularyInput, googleTranslateUrl, cambridgeDictionaryUrl } from './ai.js?v=models-v24';
+import { POS_TYPES, vocabularyParts, vocabularyPosLabel } from './vocabulary.js?v=models-v24';
+import { lookupPronunciationAudio, loadPronunciationElement } from './pronunciation-audio.js?v=models-v24';
+import { LISTENING_RULES, getWordStress, pronunciationStress, listeningAnswerFields, listeningPool, createListeningAttempt, listeningClock, parseListeningAnswer, gradeListeningAttempt } from './listening-test.js?v=models-v24';
 
 const $ = (s,root=document)=>root.querySelector(s);
 const $$ = (s,root=document)=>[...root.querySelectorAll(s)];
