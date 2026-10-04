@@ -19,6 +19,12 @@ export function createAuroraSS(T){
   for(let i=0;i<steps;i++){const a=i*4,b=a+4;for(const [j,k]of [[0,1],[2,3],[0,2],[1,3]])indices.push(a+j,b+j,a+k,a+k,b+j,b+k);}
   const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pos,3));g.setIndex(indices);g.computeVertexNormals();return mesh(p,g,mat);
  }
+ function strand(parent,points,widths,mat){
+  const path=new T.CatmullRomCurve3(points.map(v=>new T.Vector3(...v))),positions=[],indices=[],steps=20,sides=8;
+  for(let i=0;i<=steps;i++){const u=i/steps,v=path.getPoint(u),t=path.getTangent(u),side=new T.Vector3(t.y,-t.x,0).normalize(),q=u*(widths.length-1),j=Math.min(widths.length-2,Math.floor(q)),w=widths[j]+(widths[j+1]-widths[j])*(q-j);for(let k=0;k<sides;k++){const a=k*Math.PI*2/sides;positions.push(v.x+side.x*w*Math.cos(a),v.y+side.y*w*Math.cos(a),v.z+w*.5*Math.sin(a));}}
+  for(let i=0;i<steps;i++)for(let k=0;k<sides;k++){const a=i*sides+k,b=i*sides+(k+1)%sides,c=a+sides,d=b+sides;indices.push(a,c,b,b,c,d);}
+  const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(positions,3));g.setIndex(indices);g.computeVertexNormals();return mesh(parent,g,mat);
+ }
  const body=group(root);body.name='MageBody';
  // Slim adult anime proportions: sculpted jaw, narrow neck, articulated shoulders.
  const torsoProfile=[[.13,2.23],[.18,2.32],[.22,2.43],[.21,2.58],[.26,2.78],[.23,2.9],[.11,2.97]];
@@ -38,13 +44,13 @@ export function createAuroraSS(T){
  for(const s of [-1,1])ell(head,s*.3,-.025,0,.043,.073,.03,skin);
  const eyes=[];
  for(const s of [-1,1]){
-  const e=group(head,s*.13,.015,.244);e.rotation.y=s*.12;eyes.push(e);
+  const e=group(head,s*.13,.015,.273);e.rotation.y=s*.12;e.scale.x=.9;eyes.push(e);
   const shape=new T.Shape();shape.moveTo(-.103,.014);shape.bezierCurveTo(-.065,.09,.055,.089,.103,.025);shape.bezierCurveTo(.064,-.058,-.058,-.058,-.103,.014);
   mesh(e,new T.ShapeGeometry(shape,12),white);
   ell(e,0,.005,.008,.053,.066,.013,iris,20);ell(e,0,.005,.022,.024,.051,.008,ink);
   ell(e,-.018,.035,.029,.018,.021,.006,white,8);ell(e,.019,-.02,.027,.009,.01,.005,cyan,8);
   curve(e,[[-.103,.014,.012],[-.065,.072,.013],[.03,.078,.013],[.103,.025,.012]],.008,ink);
-  for(let k=0;k<3;k++)rod(e,[s*(.072+k*.011),.05-k*.006,.014],[s*(.12+k*.014),.087-k*.013,.014],.004,ink);
+  for(let k=0;k<2;k++)rod(e,[s*(.072+k*.011),.05-k*.006,.014],[s*(.12+k*.014),.087-k*.013,.014],.004,ink);
   curve(head,[[s*.055,.14,.255],[s*.13,.155,.26],[s*.2,.139,.236]],.006,hairShade);
   ell(head,s*.212,-.115,.221,.055,.015,.004,rose,12);
  }
@@ -58,12 +64,12 @@ export function createAuroraSS(T){
  const locks=[];
  for(let i=0;i<12;i++){
   const a=.25+(i/11)*(Math.PI-.5),x=Math.cos(a)*.305,z=-Math.sin(a)*.22;
-  const l=group(head,x,.2,z);ribbon(l,[[0,0,0],[x*.22,-.43,-.09],[x*.42,-.95,.015],[x*.75,-1.46,.13],[x*.35,-1.8,.22]],[.085,.105,.08,.07,.001],i%3?hair:hairShade);
+  const l=group(head,x,.2,z);strand(l,[[0,0,0],[x*.32,-.43,-.09],[x*.72,-.95,.015],[x*1.1,-1.46,.13],[x*.85,-1.8,.22]],[.075,.093,.078,.055,.002],i%3?hair:hairShade);
   curve(l,[[.005,-.08,.022],[x*.22,-.5,-.065],[x*.43,-1.03,.045],[x*.63,-1.47,.165]],.005,ivory);locks.push(l);
  }
  for(const s of [-1,1]){
-  for(let i=0;i<3;i++)ribbon(head,[[s*(.02+i*.07),.4,.12],[s*(.1+i*.06),.31,.26],[s*(.11+i*.065),.17,.294],[s*(.16+i*.061),.105,.27]],[.047,.053,.04,.001],i%2?hairShade:hair);
-  ribbon(head,[[s*.285,.25,.14],[s*.33,-.13,.08],[s*.35,-.62,.05],[s*.47,-1.04,.16]],[.067,.085,.053,.001],hair);
+  for(let i=0;i<3;i++)strand(head,[[s*(.02+i*.07),.4,.12],[s*(.1+i*.06),.31,.26],[s*(.11+i*.065),.17,.294],[s*(.16+i*.061),.105,.27]],[.047,.053,.04,.001],i%2?hairShade:hair);
+  strand(head,[[s*.285,.25,.14],[s*.33,-.13,.08],[s*.35,-.62,.05],[s*.47,-1.04,.16]],[.067,.085,.053,.001],hair);
   curve(head,[[s*.32,.09,.15],[s*.35,-.08,.08]],.012,gold);gem(head,s*.35,-.115,.08,.052,violet);
  }
  const tiara=ring(head,.275,.012,gold,0,.34,0);tiara.rotation.x=Math.PI/2;
@@ -80,10 +86,10 @@ export function createAuroraSS(T){
  // Twelve individually curved panels. A front opening reveals the boots.
  for(let i=0;i<12;i++){
   const a=i*Math.PI/6,z=Math.cos(a),x=Math.sin(a),front=z>.65;
-  const panel=group(skirt);const length=front?1.03:1.98;
-  const points=[[x*.17,0,z*.13],[x*.29,-.52,z*.22],[x*.46,-length*.78,z*.34],[x*.56,-length,z*.43]];
-  ribbon(panel,points,[.06,.13,.145,.06],i%3===0?indigo:ivory,.013);
-  for(const side of [-1,1])curve(panel,points.map((v,j)=>[v[0]+side*[.057,.122,.136,.055][j],v[1],v[2]+.017]),.006,gold);
+  const panel=group(skirt);const length=front?1.24:1.98;
+  const points=[[x*.17,0,z*.13],[x*.29,-.52,z*.22],[x*.52,-length*.78,z*.36],[x*.67,-length,z*.46]];
+  ribbon(panel,points,[.06,.14,.20,front?.15:.22],i%3===0?indigo:ivory,.013);
+  for(const side of [-1,1])curve(panel,points.map((v,j)=>[v[0]+side*[.057,.132,.19,front?.14:.21][j],v[1],v[2]+.017]),.006,gold);
   if(!front){star(panel,x*.41,-1.22,z*.34+.02,.045,gold);gem(panel,x*.49,-1.64,z*.39,.032,violet);}
   cloth.push(panel);
  }
@@ -113,7 +119,7 @@ export function createAuroraSS(T){
  for(const s of [-1,1]){
   const wing=group(body,s*.17,2.83,-.18);wing.name=s<0?'LeftCrystalWing':'RightCrystalWing';wings.push(wing);
   for(let i=0;i<7;i++){
-   const a=.38+i*.23,end=[s*(.54+Math.sin(a)*.84),.7-i*.18,-.16-i*.045];
+   const a=.25+i*.25,end=[s*(.52+Math.sin(a)*.78),1.05-i*.30,-.16-i*.045];
    const shard=mesh(wing,new T.OctahedronGeometry(1),i%2?violet:cyan);const start=new T.Vector3(s*.13,.02,-.025),tip=new T.Vector3(...end),d=tip.clone().sub(start);shard.position.copy(start.clone().add(tip).multiplyScalar(.5));shard.scale.set(.10+(i%2)*.018,d.length()*.64,.04);shard.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),d.normalize());
    rod(wing,[s*.08,0,.012],end.map((v,k)=>k===2?v+.045:v),.008,gold);gem(wing,...end,.035,gold);
   }
