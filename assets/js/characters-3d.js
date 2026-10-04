@@ -1,4 +1,5 @@
-import { createDistinctModel } from './character-models.js?v=wallet-v25';
+import { createAuroraSS } from './aurora-ss.js?v=aurora-v26';
+import { createDistinctModel } from './character-models.js?v=aurora-v26';
 let engine;
 // Project the same meshes on a 2D canvas when a browser disables WebGL.
 function softwareRenderer(T,canvas){
@@ -17,10 +18,18 @@ export async function mountCharacter(container,character){
  const material=color=>new T.MeshStandardMaterial({color,roughness:.3,metalness:.17});const main=material(character.color),white=material('#eee5fc'),dark=material('#26223c'),glow=new T.MeshStandardMaterial({color:character.color,emissive:character.color,emissiveIntensity:.7}),pink=material('#f3a5c8');
  const bot=new T.Group();scene.add(bot);const sphere=(parent,x,y,z,sx,sy,sz,mat)=>{const o=new T.Mesh(new T.SphereGeometry(1,Math.max(sx,sy,sz)<.1?8:24,Math.max(sx,sy,sz)<.1?6:16),mat);o.position.set(x,y,z);o.scale.set(sx,sy,sz);parent.add(o);return o;};
  if(['dragon','angel'].includes(character.kind)){
-  scene.remove(bot);const model=createDistinctModel(T,character);scene.add(model.root);let action='wave',started=performance.now(),disposed=false;
-  const resize=()=>{const w=container.clientWidth||220,h=container.clientHeight||240;renderer.setSize(w,h,false);camera.aspect=w/h;camera.position.z=w/h<.95?8.2:6.8;camera.lookAt(0,1.4,0);camera.updateProjectionMatrix();};const ro=new ResizeObserver(resize);ro.observe(container);resize();
-  renderer.setAnimationLoop(now=>{if(disposed||document.hidden)return;const quiet=matchMedia('(prefers-reduced-motion: reduce)').matches||document.body.classList.contains('low-motion');model.update(action,(now-started)/1000,now,quiet);renderer.render(scene,camera);});
-  return {act(value){action=value;started=performance.now();},dispose(){if(disposed)return;disposed=true;ro.disconnect();renderer.setAnimationLoop(null);scene.traverse(o=>{o.geometry?.dispose();if(o.material)o.material.dispose();});renderer.dispose();renderer.forceContextLoss();canvas.remove();}};
+  scene.remove(bot);const model=character.kind==='angel'?createAuroraSS(T):createDistinctModel(T,character);
+  const pivot=new T.Group();pivot.add(model.root);scene.add(pivot);let action='wave',started=performance.now(),disposed=false,angle=0,zoom=1,drag=null;
+  const focus=model.focus||1.4,baseDistance=model.distance||6.8;
+  const resize=()=>{const w=container.clientWidth||220,h=container.clientHeight||240;renderer.setSize(w,h,false);camera.aspect=w/h;camera.position.set(0,focus+.35,(w/h<.95?baseDistance*1.15:baseDistance)/zoom);camera.lookAt(0,focus,0);camera.updateProjectionMatrix();};
+  canvas.tabIndex=0;canvas.setAttribute('aria-label',`Mô hình 3D ${character.name}. Kéo để xoay, phím trái phải để xem các góc.`);canvas.style.touchAction='pan-y';
+  const down=e=>{drag={x:e.clientX,angle};canvas.setPointerCapture?.(e.pointerId);};
+  const move=e=>{if(drag){angle=drag.angle+(e.clientX-drag.x)*.012;}};
+  const up=()=>{drag=null;};const key=e=>{if(['ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();angle+=e.key==='ArrowLeft'?-.25:.25;}};
+  canvas.addEventListener('pointerdown',down);canvas.addEventListener('pointermove',move);canvas.addEventListener('pointerup',up);canvas.addEventListener('pointercancel',up);canvas.addEventListener('keydown',key);
+  const ro=new ResizeObserver(resize);ro.observe(container);resize();
+  renderer.setAnimationLoop(now=>{if(disposed||document.hidden)return;const quiet=matchMedia('(prefers-reduced-motion: reduce)').matches||document.body.classList.contains('low-motion');model.update(action,(now-started)/1000,now,quiet);pivot.rotation.y=angle;renderer.render(scene,camera);});
+  return {act(value){action=value;started=performance.now();},zoom(delta){zoom=Math.max(.85,Math.min(1.55,zoom+delta));resize();},reset(){angle=0;zoom=1;resize();},dispose(){if(disposed)return;disposed=true;ro.disconnect();renderer.setAnimationLoop(null);canvas.removeEventListener('pointerdown',down);canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerup',up);canvas.removeEventListener('pointercancel',up);canvas.removeEventListener('keydown',key);scene.traverse(o=>{o.geometry?.dispose();if(o.material){const materials=Array.isArray(o.material)?o.material:[o.material];materials.forEach(m=>m.dispose());}});renderer.dispose();renderer.forceContextLoss();canvas.remove();}};
  }
  sphere(bot,0,1,0,.5,.6,.35,main);sphere(bot,0,1,.3,.31,.32,.09,white);sphere(bot,0,1.07,.39,.11,.11,.035,glow);
  const head=new T.Group();head.position.y=1.92;bot.add(head);sphere(head,0,0,0,.65,.53,.45,main);if(character.kind==='robot')sphere(head,0,0,.38,.53,.32,.08,dark);

@@ -6,7 +6,7 @@ export const CHARACTERS=[
  {id:'bunny',name:'Bun Bun',rank:'B',kind:'rabbit',color:'#e5a5d3',emoji:'🐰',description:'Thỏ hồng · tai đung đưa, nhảy, xoay',actions:['wave','happy','spin']},
  {id:'luna',name:'Luna',rank:'A',kind:'fox',color:'#76a5ff',emoji:'🦊',description:'Cáo pháp sư · áo choàng, trượng trăng, đuôi bồng',actions:['wave','happy','spin','cheer','magic']},
  {id:'nova',name:'Nova',rank:'S',kind:'dragon',color:'#b587fa',emoji:'🐉',description:'Rồng Nova · bốn chân, mõm dài, cánh dơi, đuôi cong',actions:['wave','happy','spin','cheer','magic','dance','fly','roar']},
- {id:'aurora',name:'Aurora',rank:'SS',kind:'angel',color:'#ffd16d',emoji:'👑',description:'Anime Aurora · mắt tím, tóc dài, váy trắng, cánh thiên thần',actions:['wave','happy','spin','cheer','magic','dance','heart','fly']}
+ {id:'aurora',name:'Aurora',rank:'SS',kind:'angel',color:'#ffd16d',emoji:'👑',description:'Pháp sư Tinh Tú · cánh pha lê, váy thêu vàng, trượng sao & rồng đồng hành',actions:['wave','happy','spin','cheer','magic','dance','heart','fly','dragon']}
 ];
 export const emptyGacha=()=>({tickets:0,inventory:{},rewards:{},draws:{},equipped:'',drawCount:0});
 export function chooseCharacter(unit,variantUnit=.5){let n=Math.max(0,Math.min(.999999999,unit))*100;const rarity=RARITIES.find(r=>(n-=r.chance)<0)||RARITIES[4];const pool=CHARACTERS.filter(c=>c.rank===rarity.rank);const offset=Math.max(0,Math.min(.999999999,variantUnit));return pool[Math.floor(offset*pool.length)];}
