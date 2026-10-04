@@ -24,7 +24,7 @@ export async function lookupPronunciationAudio(word){
   if(!fileRes.ok)throw new Error('Không tải được tệp phát âm.');
   const fileData=await fileRes.json();
   const pages=Object.values(fileData.query?.pages||{});let info;
-  for(const name of files){info=pages.find(p=>p.title==='File:'+name)?.imageinfo?.[0];if(safePronunciationUrl(info?.url))break;info=null;}
+  for(const name of files){info=pages.find(p=>p.title.replace(/_/g,' ').toLowerCase()===('File:'+name).replace(/_/g,' ').toLowerCase())?.imageinfo?.[0];if(safePronunciationUrl(info?.url))break;info=null;}
   if(!info)throw new Error('Không có tệp phát âm phù hợp.');
   const result={url:safePronunciationUrl(info.url),source:info.descriptionurl||`https://en.wiktionary.org/wiki/${encodeURIComponent(key)}`,license:String(info.extmetadata?.LicenseShortName?.value||'').replace(/<[^>]*>/g,'')};cache.set(key,result);return result;
 }

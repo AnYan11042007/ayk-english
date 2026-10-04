@@ -1,11 +1,11 @@
 import {defaultCategories, buildLessons, categoryForWord} from './curriculum.js';
 import { firebaseReady, auth, fAuth } from './firebase.js';
 import { firebaseConfig, isFirebaseConfigured } from './firebase-config.js';
-import * as store from './store.js?v=listening-v14';
-import { aiLookup, searchCommonsImages, normalizeVocabularyInput, googleTranslateUrl } from './ai.js?v=listening-v14';
-import { POS_TYPES, vocabularyParts, vocabularyPosLabel } from './vocabulary.js?v=listening-v14';
-import { lookupPronunciationAudio, loadPronunciationElement } from './pronunciation-audio.js?v=listening-v14';
-import { LISTENING_RULES, getWordStress, listeningPool, createListeningAttempt, listeningClock, parseListeningAnswer, gradeListeningAttempt } from './listening-test.js?v=listening-v14';
+import * as store from './store.js?v=listening-v15';
+import { aiLookup, searchCommonsImages, normalizeVocabularyInput, googleTranslateUrl } from './ai.js?v=listening-v15';
+import { POS_TYPES, vocabularyParts, vocabularyPosLabel } from './vocabulary.js?v=listening-v15';
+import { lookupPronunciationAudio, loadPronunciationElement } from './pronunciation-audio.js?v=listening-v15';
+import { LISTENING_RULES, getWordStress, listeningPool, createListeningAttempt, listeningClock, parseListeningAnswer, gradeListeningAttempt } from './listening-test.js?v=listening-v15';
 
 const $ = (s,root=document)=>root.querySelector(s);
 const $$ = (s,root=document)=>[...root.querySelectorAll(s)];
@@ -260,9 +260,9 @@ async function prepareListeningAudio(t){
       }
     }));
     if(state.listening!==t){loaded.forEach(a=>a.pause());return;}
-    if(outcomes.some(r=>r.status==='rejected'))throw new Error('Âm thanh chưa đủ.');
+    const failed=outcomes.find(r=>r.status==='rejected');if(failed)throw failed.reason;
     t.audioElements=t.questions.map((q,i)=>loaded.get(i));t.phase='audio-ready';renderListeningTest();
-  }catch(err){if(state.listening!==t)return;t.phase='audio-error';t.audioError='Chưa tải đủ âm thanh từ từ điển. Bài chưa tính giờ. Kiểm tra mạng rồi thử lại.';t.useRecordedAudio=true;renderListeningTest();}
+  }catch(err){if(state.listening!==t)return;t.phase='audio-error';t.audioError='Chưa tải đủ âm thanh từ từ điển. Bài chưa tính giờ. '+err.message+' Kiểm tra mạng rồi thử lại.';t.useRecordedAudio=true;renderListeningTest();}
 }
 function playListeningWord(t,index,windowIndex){
   if(state.listening!==t||t.phase!=='questions')return;
