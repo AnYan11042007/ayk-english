@@ -1,8 +1,8 @@
-import { getWordStress } from './listening-test.js?v=aurora-v26';
+import { getWordStress } from './listening-test.js?v=aurora-v27';
 import { starterVocabulary } from './starter-data.js';
 
-import { normalizeVocabularyInput, googleTranslateUrl, readDictionaryEntries } from './vocabulary.js?v=aurora-v26';
-import { readWiktionary, validateTranslation } from './lookup-sources.js?v=aurora-v26';
+import { normalizeVocabularyInput, googleTranslateUrl, readDictionaryEntries } from './vocabulary.js?v=aurora-v27';
+import { readWiktionary, validateTranslation } from './lookup-sources.js?v=aurora-v27';
 export { normalizeVocabularyInput, googleTranslateUrl };
 export function cambridgeDictionaryUrl(input){const word=normalizeVocabularyInput(input).word;return word?`https://dictionary.cambridge.org/vi/dictionary/english-vietnamese/${encodeURIComponent(word)}`:'https://dictionary.cambridge.org/vi/dictionary/english-vietnamese/'}
 

@@ -1,15 +1,15 @@
-import { renderGacha, renderInventory, stopGachaPreview, showCompanion, clearCompanion, reactCompanion } from './gacha-ui.js?v=aurora-v26';
-import { studySummary, addStudyWord } from './motivation.js?v=aurora-v26';
-import { animateStudyView, celebrateStudy, setupStudyEffects } from './effects.js?v=aurora-v26';
-import { RAPID_MODES, createRapidGame, beginRapidQuestion, submitRapidAnswer, advanceRapidGame } from './rapid-games.js?v=aurora-v26';
+import { renderGacha, renderInventory, stopGachaPreview, showCompanion, clearCompanion, reactCompanion } from './gacha-ui.js?v=aurora-v27';
+import { studySummary, addStudyWord } from './motivation.js?v=aurora-v27';
+import { animateStudyView, celebrateStudy, setupStudyEffects } from './effects.js?v=aurora-v27';
+import { RAPID_MODES, createRapidGame, beginRapidQuestion, submitRapidAnswer, advanceRapidGame } from './rapid-games.js?v=aurora-v27';
 import {defaultCategories, buildLessons, categoryForWord} from './curriculum.js';
 import { firebaseReady, auth, fAuth } from './firebase.js';
 import { firebaseConfig, isFirebaseConfigured } from './firebase-config.js';
-import * as store from './store.js?v=aurora-v26';
-import { aiLookup, searchCommonsImages, normalizeVocabularyInput, googleTranslateUrl, cambridgeDictionaryUrl } from './ai.js?v=aurora-v26';
-import { POS_TYPES, vocabularyParts, vocabularyPosLabel } from './vocabulary.js?v=aurora-v26';
-import { lookupPronunciationAudio, loadPronunciationElement } from './pronunciation-audio.js?v=aurora-v26';
-import { LISTENING_RULES, getWordStress, pronunciationStress, listeningAnswerFields, listeningPool, createListeningAttempt, listeningClock, parseListeningAnswer, gradeListeningAttempt } from './listening-test.js?v=aurora-v26';
+import * as store from './store.js?v=aurora-v27';
+import { aiLookup, searchCommonsImages, normalizeVocabularyInput, googleTranslateUrl, cambridgeDictionaryUrl } from './ai.js?v=aurora-v27';
+import { POS_TYPES, vocabularyParts, vocabularyPosLabel } from './vocabulary.js?v=aurora-v27';
+import { lookupPronunciationAudio, loadPronunciationElement } from './pronunciation-audio.js?v=aurora-v27';
+import { LISTENING_RULES, getWordStress, pronunciationStress, listeningAnswerFields, listeningPool, createListeningAttempt, listeningClock, parseListeningAnswer, gradeListeningAttempt } from './listening-test.js?v=aurora-v27';
 
 const $ = (s,root=document)=>root.querySelector(s);
 const $$ = (s,root=document)=>[...root.querySelectorAll(s)];
@@ -69,6 +69,7 @@ async function bootstrapUser(user){
   loginScreen.classList.add('hidden');appEl.classList.remove('hidden');
   const allowed=['dashboard','learn','review','vocabulary','sessions','tests','games','gacha','inventory',...(canTeach()?['admin']:[])];
   state.view=['solo','exercises'].includes(resume?.view)?'games':allowed.includes(resume?.view)?resume.view:canTeach()?'admin':'dashboard';
+  if(typeof URLSearchParams==='function'&&new URLSearchParams(window.location?.search||'').get('character')==='aurora')state.view='gacha';
   if(user.isDemo)saved.set('ayk_demo_session',true);else saved.remove('ayk_demo_session');
   finishLoading();
   document.body.classList.toggle('admin-mode',isAdmin());
