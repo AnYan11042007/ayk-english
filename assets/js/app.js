@@ -1,15 +1,15 @@
-import { renderGacha, stopGachaPreview, showCompanion, clearCompanion, reactCompanion } from './gacha-ui.js?v=gacha-v21';
-import { studySummary, addStudyWord } from './motivation.js?v=gacha-v21';
-import { animateStudyView, celebrateStudy, setupStudyEffects } from './effects.js?v=gacha-v21';
-import { RAPID_MODES, createRapidGame, beginRapidQuestion, submitRapidAnswer, advanceRapidGame } from './rapid-games.js?v=gacha-v21';
+import { renderGacha, stopGachaPreview, showCompanion, clearCompanion, reactCompanion } from './gacha-ui.js?v=gacha-v22';
+import { studySummary, addStudyWord } from './motivation.js?v=gacha-v22';
+import { animateStudyView, celebrateStudy, setupStudyEffects } from './effects.js?v=gacha-v22';
+import { RAPID_MODES, createRapidGame, beginRapidQuestion, submitRapidAnswer, advanceRapidGame } from './rapid-games.js?v=gacha-v22';
 import {defaultCategories, buildLessons, categoryForWord} from './curriculum.js';
 import { firebaseReady, auth, fAuth } from './firebase.js';
 import { firebaseConfig, isFirebaseConfigured } from './firebase-config.js';
-import * as store from './store.js?v=gacha-v21';
-import { aiLookup, searchCommonsImages, normalizeVocabularyInput, googleTranslateUrl, cambridgeDictionaryUrl } from './ai.js?v=gacha-v21';
-import { POS_TYPES, vocabularyParts, vocabularyPosLabel } from './vocabulary.js?v=gacha-v21';
-import { lookupPronunciationAudio, loadPronunciationElement } from './pronunciation-audio.js?v=gacha-v21';
-import { LISTENING_RULES, getWordStress, pronunciationStress, listeningAnswerFields, listeningPool, createListeningAttempt, listeningClock, parseListeningAnswer, gradeListeningAttempt } from './listening-test.js?v=gacha-v21';
+import * as store from './store.js?v=gacha-v22';
+import { aiLookup, searchCommonsImages, normalizeVocabularyInput, googleTranslateUrl, cambridgeDictionaryUrl } from './ai.js?v=gacha-v22';
+import { POS_TYPES, vocabularyParts, vocabularyPosLabel } from './vocabulary.js?v=gacha-v22';
+import { lookupPronunciationAudio, loadPronunciationElement } from './pronunciation-audio.js?v=gacha-v22';
+import { LISTENING_RULES, getWordStress, pronunciationStress, listeningAnswerFields, listeningPool, createListeningAttempt, listeningClock, parseListeningAnswer, gradeListeningAttempt } from './listening-test.js?v=gacha-v22';
 
 const $ = (s,root=document)=>root.querySelector(s);
 const $$ = (s,root=document)=>[...root.querySelectorAll(s)];

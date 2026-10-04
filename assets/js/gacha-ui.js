@@ -1,5 +1,5 @@
-import {CHARACTERS,RARITIES,chooseCharacter} from './gacha-core.js?v=gacha-v21';
-import {mountCharacter} from './characters-3d.js?v=gacha-v21';
+import {CHARACTERS,RARITIES,chooseCharacter} from './gacha-core.js?v=gacha-v22';
+import {mountCharacter} from './characters-3d.js?v=gacha-v22';
 const labels={wave:'👋 Chào',happy:'🎉 Ăn mừng',spin:'↻ Xoay',cheer:'💜 Động viên',magic:'✨ Phép thuật',dance:'🎵 Nhảy múa',heart:'💖 Thả tim'};
 let preview=null,companion=null,mascot=null,generation=0;
 export function stopGachaPreview(){generation++;preview?.dispose();preview=null;}

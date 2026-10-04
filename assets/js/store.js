@@ -1,4 +1,4 @@
-import { emptyGacha, awardTicket, applyDraw, CHARACTERS } from './gacha-core.js?v=gacha-v21';
+import { emptyGacha, awardTicket, applyDraw, CHARACTERS } from './gacha-core.js?v=gacha-v22';
 import { firebaseReady, db, fDb } from './firebase.js';
 import { starterVocabulary } from './starter-data.js';
 
