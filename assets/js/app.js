@@ -1,12 +1,14 @@
-import { RAPID_MODES, createRapidGame, beginRapidQuestion, submitRapidAnswer, advanceRapidGame } from './rapid-games.js?v=fast-games-v17';
+import { studySummary, addStudyWord } from './motivation.js?v=inspire-v18';
+import { animateStudyView, celebrateStudy, setupStudyEffects } from './effects.js?v=inspire-v18';
+import { RAPID_MODES, createRapidGame, beginRapidQuestion, submitRapidAnswer, advanceRapidGame } from './rapid-games.js?v=inspire-v18';
 import {defaultCategories, buildLessons, categoryForWord} from './curriculum.js';
 import { firebaseReady, auth, fAuth } from './firebase.js';
 import { firebaseConfig, isFirebaseConfigured } from './firebase-config.js';
-import * as store from './store.js?v=fast-games-v17';
-import { aiLookup, searchCommonsImages, normalizeVocabularyInput, googleTranslateUrl, cambridgeDictionaryUrl } from './ai.js?v=fast-games-v17';
-import { POS_TYPES, vocabularyParts, vocabularyPosLabel } from './vocabulary.js?v=fast-games-v17';
-import { lookupPronunciationAudio, loadPronunciationElement } from './pronunciation-audio.js?v=fast-games-v17';
-import { LISTENING_RULES, getWordStress, pronunciationStress, listeningAnswerFields, listeningPool, createListeningAttempt, listeningClock, parseListeningAnswer, gradeListeningAttempt } from './listening-test.js?v=fast-games-v17';
+import * as store from './store.js?v=inspire-v18';
+import { aiLookup, searchCommonsImages, normalizeVocabularyInput, googleTranslateUrl, cambridgeDictionaryUrl } from './ai.js?v=inspire-v18';
+import { POS_TYPES, vocabularyParts, vocabularyPosLabel } from './vocabulary.js?v=inspire-v18';
+import { lookupPronunciationAudio, loadPronunciationElement } from './pronunciation-audio.js?v=inspire-v18';
+import { LISTENING_RULES, getWordStress, pronunciationStress, listeningAnswerFields, listeningPool, createListeningAttempt, listeningClock, parseListeningAnswer, gradeListeningAttempt } from './listening-test.js?v=inspire-v18';
 
 const $ = (s,root=document)=>root.querySelector(s);
 const $$ = (s,root=document)=>[...root.querySelectorAll(s)];
@@ -96,10 +98,23 @@ function navigate(view){
 
 function renderView(){
   const renderers={dashboard:renderDashboard,learn:renderLearn,review:renderReview,vocabulary:renderVocabulary,sessions:renderSessions,exercises:renderExercises,tests:renderTests,solo:renderSolo,admin:renderAdmin,games:renderGames};
-  (renderers[state.view]||renderDashboard)();
+  (renderers[state.view]||renderDashboard)();animateStudyView(viewRoot);
 }
 
 function pageTitle(title,sub,actions=''){return `<div class="page-title"><div><h1>${title}</h1><p>${sub}</p></div>${actions}</div>`}
+function studyHistory(){return saved.get('ayk_study_'+state.user?.uid)||{days:{}}}
+function noteStudyWord(word){
+ if(!word?.id||!state.user)return;
+ const before=studySummary(studyHistory()),result=addStudyWord(studyHistory(),word.id);saved.set('ayk_study_'+state.user.uid,result.history);
+ const after=studySummary(result.history);
+ if(result.added){if(after.count===5){celebrateStudy();toast('🎉 Hoàn thành mục tiêu 5 từ hôm nay!','success')}else if(after.count<5)toast(`✨ Thêm một từ nhớ chắc! ${after.count}/5 từ hôm nay.`,'success')}
+ if(before.count===0&&after.count===1)$('#userName').textContent=userDisplayName();
+}
+function inspirationPanel(){
+ const daily=studySummary(studyHistory()),pool=wordsOfSession(),word=pool.find(w=>!state.progress[w.id]?.mastered)||pool[0];
+ const milestones=[['🌱','Bước đầu tiên',masteredCount()>=1],['🎯','5 từ đã thuộc',masteredCount()>=5],['🔥','3 ngày liên tiếp',daily.streak>=3],['🏆','Mục tiêu hôm nay',daily.count>=5]];
+ return `<div class="inspiration-grid"><section class="daily-mission panel"><div class="mission-heading"><span class="eyebrow">YOUR DAILY SPARK</span><span class="streak-chip">🔥 ${daily.streak} ngày liên tiếp</span></div><h2>${daily.count>=5?'Hôm nay bạn làm rất tốt!':'5 từ nhớ chắc. Một bước tiến thật.'}</h2><p>${daily.count>=5?'Mục tiêu đã hoàn thành. Chơi một lượt để củng cố trí nhớ nhé.':'Học flashcard hoặc trả lời đúng trong trò chơi để thắp sáng mục tiêu hôm nay.'}</p><div class="daily-dots" aria-label="${daily.count} trên 5 từ hôm nay">${Array.from({length:5},(_,i)=>`<span class="${i<daily.count?'lit':''}">${i<daily.count?'✓':'✦'}</span>`).join('')}<b>${Math.min(daily.count,5)}/5 từ</b></div><div class="mission-meter" role="progressbar" aria-label="Mục tiêu hôm nay" aria-valuemin="0" aria-valuemax="5" aria-valuenow="${Math.min(5,daily.count)}"><i style="width:${daily.percent}%"></i></div><div class="mission-bottom"><button class="btn primary" data-go="${daily.count>=5?'games':'learn'}">${daily.count>=5?'Chơi để nhớ lâu →':'Thắp sáng mục tiêu →'}</button><small>Tiến độ hằng ngày lưu trên trình duyệt này.</small></div></section><section class="discovery-card panel"><div class="discovery-top"><span>✦ MỘT TỪ, MỘT KHỞI ĐẦU</span><span class="discovery-orbit" aria-hidden="true">Aa</span></div>${word?`<h2>${esc(word.word)}</h2><div class="ipa">${esc(word.ipa||'')}</div><p>${esc(word.meaning)}</p><div class="discovery-actions"><button class="btn ghost" data-speak="${esc(word.word)}">🔊 Nghe từ</button><button class="btn secondary" id="discoverWord" data-word="${esc(word.id)}">Khám phá →</button></div>`:'<h2>Sẵn sàng khám phá?</h2><p>Chọn buổi đã có từ vựng để bắt đầu hành trình.</p><button class="btn secondary" data-go="sessions">Chọn buổi học →</button>'}</section></div><section class="achievement-strip"><div><span class="eyebrow">LITTLE WINS MATTER</span><h3>Từng bước nhỏ đều đáng tự hào</h3></div><div class="achievement-badges">${milestones.map(([icon,title,unlocked])=>`<div class="achievement ${unlocked?'unlocked':''}" title="${unlocked?'Đã đạt':'Chưa đạt'}"><span>${icon}</span><small>${title}</small><b>${unlocked?'✓':'○'}</b></div>`).join('')}</div></section>`;
+}
 function featureCards(){
   const fs=[['learn','📘','Học','Flashcard từ vựng'],['games','🎮','Trò chơi','11 cách luyện từ'],['review','↻','Ôn bài','Xem lại từ khó'],['vocabulary','Aa','Từ vựng','Tra và lọc từ'],['sessions','▦','Theo buổi','Học theo lịch'],['exercises','✎','Làm bài tập','Luyện tập nhanh'],['tests','▤','Kiểm tra','Đánh giá năng lực'],['solo','🏆','Solo bài','Thử thách điểm']];
   return `<div class="feature-grid">${fs.map(x=>`<button class="feature-card" data-go="${x[0]}"><div class="fi">${x[1]}</div><b>${x[2]}</b><small>${x[3]}</small></button>`).join('')}</div>`;
@@ -108,8 +123,8 @@ function featureCards(){
 function renderDashboard(){
   const p=progressPct(), today=wordsOfSession(state.session).slice(0,4), latest=state.testResults[0];
   viewRoot.innerHTML=`
-    <div class="welcome-grid"><section class="hero"><div class="hero-copy"><span class="eyebrow">YOUR PERSONAL LEARNING SPACE</span><h1>Học một chút,<br>tiến xa hơn <span class="hero-dot">✦</span></h1><p>Chào ${esc(userDisplayName())}. Dành một chút thời gian cho tiếng Anh — mỗi từ mới là một bước tiến của bạn.</p><button class="btn hero-cta" data-go="learn">Tiếp tục học <span>↗</span></button><div class="hero-badges"><span>✦ Học theo nhịp của bạn</span><span>📚 ${state.vocab.length} từ trong thư viện</span><span>🏆 Solo & bảng xếp hạng</span></div></div><div class="hero-illustration" aria-hidden="true"><img class="hero-girl" src="./assets/images/learning-girl.webp" alt=""></div></section><aside class="panel welcome-progress"><div class="panel-title"><h3>Tiến độ của bạn</h3><button class="link-btn" data-go="vocabulary">Xem chi tiết ↗</button></div><div class="progress-ring" style="--p:${p}"><span>${p}%</span></div><div class="progress-legend"><span><i></i> Đã thuộc <b>${masteredCount()}</b></span><span><i></i> Cần ôn <b>${wrongWords().length}</b></span><span><i></i> Tổng từ <b>${state.vocab.length}</b></span></div><div class="encouragement">🏆 Mỗi từ mới là một bước tiến!</div></aside></div>
-    ${learningJourney()}${gameShelf()}
+    <div class="welcome-grid"><section class="hero"><div class="hero-copy"><span class="eyebrow">YOUR NEXT CHAPTER STARTS HERE</span><h1>Mỗi ngày một chút.<br>Tiếng Anh tiến xa <span class="hero-dot">✦</span></h1><p>Chào ${esc(userDisplayName())}. Không cần giỏi ngay hôm nay. Chỉ cần tốt hơn hôm qua một từ mới.</p><button class="btn hero-cta" data-go="learn">Tiếp tục học <span>↗</span></button><div class="hero-badges"><span>✦ Học theo nhịp của bạn</span><span>📚 ${state.vocab.length} từ trong thư viện</span><span>🏆 Solo & bảng xếp hạng</span></div></div><div class="hero-illustration" aria-hidden="true"><img class="hero-girl" src="./assets/images/learning-girl.webp" alt=""></div></section><aside class="panel welcome-progress"><div class="panel-title"><h3>Tiến độ của bạn</h3><button class="link-btn" data-go="vocabulary">Xem chi tiết ↗</button></div><div class="progress-ring" style="--p:${p}"><span>${p}%</span></div><div class="progress-legend"><span><i></i> Đã thuộc <b>${masteredCount()}</b></span><span><i></i> Cần ôn <b>${wrongWords().length}</b></span><span><i></i> Tổng từ <b>${state.vocab.length}</b></span></div><div class="encouragement">🏆 Mỗi từ mới là một bước tiến!</div></aside></div>
+    ${inspirationPanel()}${learningJourney()}${gameShelf()}
     <div class="section-heading"><h2>Khám phá góc học tập</h2><span>Chọn cách học bạn yêu thích</span></div>${featureCards()}
     <div class="dashboard-grid">
       <div class="panel wide"><div class="panel-title"><h3>🎯 Tiến độ học tập</h3><button class="link-btn" data-go="vocabulary">Xem từ vựng →</button></div><div class="progress-flex"><div class="progress-ring" style="--p:${p}"><span>${p}%</span></div><div class="stats-row w-full"><div class="stat"><small>Từ đã thuộc</small><strong>${masteredCount()}</strong></div><div class="stat"><small>Tổng từ</small><strong>${state.vocab.length}</strong></div><div class="stat"><small>Buổi học</small><strong>${sessions().length}</strong></div><div class="stat"><small>Bài kiểm tra</small><strong>${state.testResults.length}</strong></div></div></div></div>
@@ -118,6 +133,7 @@ function renderDashboard(){
     </div>
     <div class="panel section-gap"><div class="panel-title"><h3>📘 Từ vựng • ${esc(lessonName(state.session))}</h3><button class="link-btn" data-go="sessions">Xem tất cả →</button></div>${sessionTabs()}<div class="vocab-grid section-gap">${today.map(vocabCard).join('')||empty('Chưa có từ vựng trong buổi này.')}</div></div>`;
   bindCommon();bindGameStarts();bindJourney();bindVocabCards();bindSessionTabs(()=>renderDashboard());
+  $('#discoverWord')?.addEventListener('click',e=>{state.flashIndex=Math.max(0,wordsOfSession().findIndex(w=>w.id===e.currentTarget.dataset.word));state.flashReveal=false;navigate('learn')});
 }
 
 function gameShelf(){
@@ -155,7 +171,7 @@ function renderLearn(){
   viewRoot.innerHTML=`${pageTitle('Học từ vựng','Flashcard: nhìn từ → đoán nghĩa → tự đánh giá')}${sessionTabs()}<div class="flash-wrap"><div class="flash-card">${v.imageUrl?`<img class="flash-image" src="${esc(v.imageUrl)}" alt="">`:`<div style="font-size:68px">${v.emoji||'📝'}</div>`}<div><span class="pos">${esc(vocabularyPosLabel(v))}</span><div class="big-word">${esc(v.word)}</div><div class="ipa">${esc(v.ipa||'')} <button class="link-btn" id="flashSpeak">🔊</button></div></div>${state.flashReveal?`<div class="flash-answer"><h2>${esc(v.meaning)}</h2><p>${esc(v.example||'')}</p></div>`:`<button class="btn primary" id="revealBtn">Hiện đáp án</button>`}</div><div class="flash-nav"><button class="btn ghost" id="prevFlash">← Trước</button>${state.flashReveal?`<button class="btn danger" id="dontKnow">Chưa nhớ</button><button class="btn success" id="knowWord">Đã nhớ ✓</button>`:''}<button class="btn ghost" id="nextFlash">Sau →</button></div><p class="text-right muted">${state.flashIndex+1}/${words.length} • ${pr.mastered?'Đã thuộc':'Đang học'}</p></div>`;
   bindSessionTabs(()=>renderLearn());$('#flashSpeak').onclick=()=>speak(v.word);$('#revealBtn')?.addEventListener('click',()=>{state.flashReveal=true;renderLearn()});
   $('#prevFlash').onclick=()=>{state.flashIndex=(state.flashIndex-1+words.length)%words.length;state.flashReveal=false;renderLearn()};$('#nextFlash').onclick=()=>{state.flashIndex=(state.flashIndex+1)%words.length;state.flashReveal=false;renderLearn()};
-  $('#knowWord')?.addEventListener('click',async()=>{await store.updateWordProgress(state.user,v.id,{mastered:true,lastReviewed:Date.now()});state.progress=await store.getProgress(state.user);updateSidebarProgress();state.flashIndex=(state.flashIndex+1)%words.length;state.flashReveal=false;renderLearn()});
+  $('#knowWord')?.addEventListener('click',async()=>{await store.updateWordProgress(state.user,v.id,{mastered:true,lastReviewed:Date.now()});noteStudyWord(v);state.progress=await store.getProgress(state.user);updateSidebarProgress();state.flashIndex=(state.flashIndex+1)%words.length;state.flashReveal=false;renderLearn()});
   $('#dontKnow')?.addEventListener('click',async()=>{await store.updateWordProgress(state.user,v.id,{mastered:false,wrongCount:(pr.wrongCount||0)+1,lastReviewed:Date.now()});state.progress=await store.getProgress(state.user);state.flashIndex=(state.flashIndex+1)%words.length;state.flashReveal=false;renderLearn()});
 }
 
@@ -510,7 +526,7 @@ function bindGameStarts(){$$('[data-game]').forEach(b=>b.onclick=()=>startLearni
 async function recordGameAnswer(word,correct){
  const old=state.progress[word.id]||{};
  await store.updateWordProgress(state.user,word.id,correct?{mastered:true,lastReviewed:Date.now()}:{wrongCount:(old.wrongCount||0)+1,lastReviewed:Date.now()});
- state.progress=await store.getProgress(state.user);updateSidebarProgress();
+ state.progress=await store.getProgress(state.user);updateSidebarProgress();if(correct)noteStudyWord(word);
 }
 function renderGames(){
  const g=state.game;
@@ -549,7 +565,7 @@ function rapidTick(g){
 }
 function answerRapid(g,value){
  const result=submitRapidAnswer(g,value);if(!result)return;
- stopRapidTimer();renderRapidGame(g);
+ stopRapidTimer();renderRapidGame(g);if(result.correct){noteStudyWord(result.word);if(g.combo===3||g.combo===5)celebrateStudy()}
  // Fast games save mistakes for revision. A single lucky guess does not mark a word mastered.
  if(!result.correct){const user=state.user;const old=state.progress[result.word.id]||{};const patch={wrongCount:(old.wrongCount||0)+1,lastReviewed:Date.now()};state.progress[result.word.id]={...old,...patch};updateSidebarProgress();store.updateWordProgress(user,result.word.id,patch).catch(()=>toast('Chưa lưu được từ cần ôn. Bạn vẫn có thể luyện lại ngay.','error'))}
 }
@@ -575,5 +591,10 @@ function renderRapidGame(g){
  $('#rapidExit').onclick=rapidExit;
 }
 
+setupStudyEffects();
+const motionButton=$('#motionBtn');
+function syncMotionButton(){const off=document.body.classList.contains('low-motion');motionButton.textContent=off?'✦':'✨';motionButton.setAttribute?.('aria-pressed',String(!off));motionButton.title=off?'Bật hiệu ứng':'Tắt hiệu ứng';}
+if(saved.get('ayk_low_motion'))document.body.classList.add('low-motion');
+syncMotionButton();motionButton.onclick=()=>{document.body.classList.toggle('low-motion');saved.set('ayk_low_motion',document.body.classList.contains('low-motion'));syncMotionButton()};
 // PWA
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
