@@ -1,0 +1,14 @@
+const assert=require('assert'),fs=require('fs'),vm=require('vm');let data={},seq=0,now=100;
+const clone=v=>JSON.parse(JSON.stringify(v));const snap=v=>({val:()=>v?clone(v):null,exists:()=>!!v});
+const fDb={ref:(db,path)=>({path}),push:r=>({key:'key'+(++seq)}),runTransaction:async(r,fn)=>{data[r.path]=fn(data[r.path]||null);return {committed:true,snapshot:snap(data[r.path])}},get:async r=>{if(!data[r.path])return snap(null);const values=Object.entries(data[r.path]||{}).sort((a,b)=>a[1].createdAt-b[1].createdAt);return snap(Object.fromEntries(r.limit?values.slice(-r.limit):values))},query:(r,...constraints)=>({...r,limit:constraints.find(c=>c.limit)?.limit}),orderByChild:()=>({}),limitToLast:limit=>({limit})};
+const memory=new Map(),c={console,Date:{now:()=>++now},localStorage:{getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,v)},firebaseReady:true,db:{},fDb,starterVocabulary:[]};vm.createContext(c);vm.runInContext(fs.readFileSync('assets/js/store.js','utf8').replace(/^import .*;\n/gm,'').replace(/export /g,''),c);const run=s=>vm.runInContext(s,c);
+(async()=>{
+for(let i=1;i<=4;i++)await run(`saveTestResult({uid:'student'}, {attemptId:'a${i}',score:${i*10}})`);
+assert.deepEqual(Object.keys(data['testResults/student']).sort(),['a2','a3','a4']);assert.equal((await run("getTestResults({uid:'student'})")).length,3);
+const oldTime=data['testResults/student'].a3.createdAt;await run("saveTestResult({uid:'student'},{attemptId:'a3',score:99})");assert.equal(data['testResults/student'].a3.createdAt,oldTime);assert.equal(data['testResults/student'].a3.score,30);
+await Promise.all([run("saveTestResult({uid:'student'},{attemptId:'a5'})"),run("saveTestResult({uid:'student'},{attemptId:'a6'})")]);assert.equal(Object.keys(data['testResults/student']).length,3);assert(data['testResults/student'].a5&&data['testResults/student'].a6);
+await run("saveTestResult({uid:'other'},{attemptId:'b1'})");assert.equal(Object.keys(data['testResults/other']).length,1);assert.equal(Object.keys(data['testResults/student']).length,3);
+for(let i=1;i<=4;i++)await run(`saveTestResult({uid:'demo',isDemo:true},{attemptId:'d${i}'})`);assert.equal((await run("getTestResults({uid:'demo',isDemo:true})")).length,3);assert(!JSON.parse(memory.get('ayk_english_demo_v2')).testResults.some(r=>r.attemptId==='d1'));
+const originalTransaction=fDb.runTransaction;fDb.runTransaction=async()=>{throw Object.assign(new Error('PERMISSION_DENIED'),{code:'PERMISSION_DENIED'})};fDb.set=async(r,row)=>{data[r.path]=clone(row)};await run("saveTestResult({uid:'pending'},{attemptId:'safe',score:90})");assert(data['testResults/pending/safe']);assert(run('testHistoryNeedsRules'));fDb.runTransaction=originalTransaction;
+console.log('PASS: physical fourth-result eviction, atomic saves, retry idempotency, three-result query, per-user isolation and matching demo retention.');
+})().catch(e=>{console.error(e);process.exitCode=1});

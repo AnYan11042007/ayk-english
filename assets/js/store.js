@@ -86,18 +86,36 @@ export async function updateWordProgress(user,wordId,patch) {
   return (await fDb.get(progressRef)).val();
 }
 
-export async function saveTestResult(user,result) {
-  const row=clean({...result,uid:user.uid,displayName:user.displayName||'Học viên',createdAt:Date.now()});
-  if (isLocalMode(user)) { if(row.attemptId&&demoState.testResults.some(r=>r.attemptId===row.attemptId))return;demoState.testResults.unshift(row); saveDemo(); return; }
-  const resultRef=row.attemptId?fDb.ref(db,`testResults/${user.uid}/${row.attemptId}`):fDb.push(fDb.ref(db,`testResults/${user.uid}`));
-  if(row.attemptId&&(await fDb.get(resultRef)).exists())return;
-  await fDb.set(resultRef,{...row,createdAt:fDb.serverTimestamp()});
+export const TEST_HISTORY_LIMIT=3;
+export let testHistoryNeedsRules=false;
+export function retainedTestResults(items){
+ return [...items].sort((a,b)=>(Number(b.createdAt)||0)-(Number(a.createdAt)||0)||String(b.id||b.attemptId||'').localeCompare(String(a.id||a.attemptId||''))).slice(0,TEST_HISTORY_LIMIT);
 }
-
+export async function saveTestResult(user,result) {
+ const row=clean({...result,uid:user.uid,displayName:user.displayName||'Học viên',createdAt:Date.now()});
+ if(isLocalMode(user)){
+  const duplicate=row.attemptId&&demoState.testResults.some(r=>r.attemptId===row.attemptId);
+  demoState.testResults=retainedTestResults(duplicate?demoState.testResults:[row,...demoState.testResults]);saveDemo();return;
+ }
+ const historyRef=fDb.ref(db,`testResults/${user.uid}`);
+ const key=row.attemptId||fDb.push(historyRef).key;
+ // Save and evict together; concurrent tabs cannot leave a fourth result behind.
+ try{await fDb.runTransaction(historyRef,current=>{
+  const next={...(current||{})};if(!next[key])next[key]=row;
+  return Object.fromEntries(retainedTestResults(Object.entries(next).map(([id,value])=>({...value,id}))).map(({id,...value})=>[id,value]));
+ });testHistoryNeedsRules=false;}catch(error){
+  if(!/permission[_ -]?denied/i.test(String(error.code||error.message)))throw error;
+  // Keep existing saving working until the owner publishes the retention rules.
+  testHistoryNeedsRules=true;
+  const resultRef=fDb.ref(db,`testResults/${user.uid}/${key}`);
+  if(!(await fDb.get(resultRef)).exists())await fDb.set(resultRef,row);
+ }
+}
 export async function getTestResults(user) {
-  if (isLocalMode(user)) return demoState.testResults;
-  const snap=await fDb.get(fDb.ref(db,`testResults/${user.uid}`));
-  return rows(snap).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+ if(isLocalMode(user))return retainedTestResults(demoState.testResults);
+ const historyRef=fDb.ref(db,`testResults/${user.uid}`);
+ const snap=await fDb.get(fDb.query(historyRef,fDb.orderByChild('createdAt'),fDb.limitToLast(TEST_HISTORY_LIMIT)));
+ return retainedTestResults(rows(snap));
 }
 
 export async function saveSoloScore(user,score,correct,total) {

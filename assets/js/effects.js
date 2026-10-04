@@ -1,7 +1,7 @@
 const reduced=()=>document.body.classList.contains('low-motion')||window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 export function animateStudyView(root){
  if(reduced())return;
- const cards=root.querySelectorAll('.welcome-grid,.inspiration-grid,.page-title,.flash-card,.play-card,.journey-step,.vocab-card,.feature-card');
+ const cards=root.querySelectorAll('.welcome-grid,.inspiration-grid,.page-title,.flash-card,.play-card,.journey-step,.vocab-card,.feature-card,.panel,.admin-banner,.session-card');
  [...cards].slice(0,30).forEach((el,i)=>el.animate?.([{opacity:0,transform:'translateY(24px) scale(.97)'},{opacity:1,transform:'translateY(0) scale(1)'}],{duration:600,delay:Math.min(i*35,280),easing:'cubic-bezier(.2,.8,.2,1)',fill:'backwards'}));
 }
 export function celebrateStudy(){
@@ -15,6 +15,8 @@ export function celebrateStudy(){
 }
 export function setupStudyEffects(){
  if(!document.addEventListener)return;
+ const view=document.querySelector('#viewRoot');
+ if(view&&typeof MutationObserver!=='undefined')new MutationObserver(records=>{if(records.some(r=>r.target===view))animateStudyView(view)}).observe(view,{childList:true});
  let pointerFrame=0;
  document.addEventListener('pointermove',event=>{
   if(event.pointerType!=='mouse'||reduced()||pointerFrame)return;
