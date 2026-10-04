@@ -88,8 +88,10 @@ export async function updateWordProgress(user,wordId,patch) {
 
 export async function saveTestResult(user,result) {
   const row=clean({...result,uid:user.uid,displayName:user.displayName||'Học viên',createdAt:Date.now()});
-  if (isLocalMode(user)) { demoState.testResults.unshift(row); saveDemo(); return; }
-  await fDb.set(fDb.push(fDb.ref(db,`testResults/${user.uid}`)),{...row,createdAt:fDb.serverTimestamp()});
+  if (isLocalMode(user)) { if(row.attemptId&&demoState.testResults.some(r=>r.attemptId===row.attemptId))return;demoState.testResults.unshift(row); saveDemo(); return; }
+  const resultRef=row.attemptId?fDb.ref(db,`testResults/${user.uid}/${row.attemptId}`):fDb.push(fDb.ref(db,`testResults/${user.uid}`));
+  if(row.attemptId&&(await fDb.get(resultRef)).exists())return;
+  await fDb.set(resultRef,{...row,createdAt:fDb.serverTimestamp()});
 }
 
 export async function getTestResults(user) {

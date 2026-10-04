@@ -1,9 +1,10 @@
 import {defaultCategories, buildLessons, categoryForWord} from './curriculum.js';
 import { firebaseReady, auth, fAuth } from './firebase.js';
 import { firebaseConfig, isFirebaseConfigured } from './firebase-config.js';
-import * as store from './store.js?v=free-lookup-v12';
-import { aiLookup, searchCommonsImages, normalizeVocabularyInput, googleTranslateUrl } from './ai.js?v=free-lookup-v12';
-import { POS_TYPES, vocabularyParts, vocabularyPosLabel } from './vocabulary.js?v=free-lookup-v12';
+import * as store from './store.js?v=listening-v13';
+import { aiLookup, searchCommonsImages, normalizeVocabularyInput, googleTranslateUrl } from './ai.js?v=listening-v13';
+import { POS_TYPES, vocabularyParts, vocabularyPosLabel } from './vocabulary.js?v=listening-v13';
+import { LISTENING_RULES, getWordStress, listeningPool, createListeningAttempt, listeningClock, parseListeningAnswer, gradeListeningAttempt } from './listening-test.js?v=listening-v13';
 
 const $ = (s,root=document)=>root.querySelector(s);
 const $$ = (s,root=document)=>[...root.querySelectorAll(s)];
@@ -14,7 +15,7 @@ const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const state={
   user:null,profile:null,vocab:[],progress:{},testResults:[],leaderboard:[],view:'dashboard',
   session:1,flashIndex:0,flashReveal:false,search:'',pos:'all',
-  exercise:null,test:null,solo:null,adminEdit:null,adminImages:[],adminSelectedImage:'',adminSearch:'',adminSession:'all',categories:[],lessons:[],category:'all',vocabSession:'all',adminCategory:'all',game:null
+  exercise:null,test:null,listening:null,listeningSessions:null,solo:null,adminEdit:null,adminImages:[],adminSelectedImage:'',adminSearch:'',adminSession:'all',categories:[],lessons:[],category:'all',vocabSession:'all',adminCategory:'all',game:null
 };
 
 const DEMO_USER={uid:'demo-user',displayName:'Ân Yan Demo',email:'demo@ayk.local',isDemo:true};
@@ -82,7 +83,7 @@ async function refreshData(){
 function navigate(view){
   if(view==='more'){ $('#sidebar').classList.add('open'); return; }
   if(view==='admin'&&!canTeach()) return toast('Bạn không có quyền Admin.','error');
-  if(state.test?.active&&view!=='tests'&&!confirm('Bài kiểm tra đang làm sẽ bị hủy. Rời trang?'))return;
+  if((state.test?.active||state.listening?.active)&&view!=='tests'&&!confirm('Bài kiểm tra đang làm sẽ bị hủy. Rời trang?'))return;
   if(view!=='tests')stopTest(); if(view!=='solo')stopSolo();
   state.view=view;saved.set('ayk_resume_'+state.user.uid,{view,session:state.session});$('#sidebar').classList.remove('open');
   $$('.nav-item[data-view]').forEach(x=>x.classList.toggle('active',x.dataset.view===view));
@@ -214,12 +215,117 @@ function renderExercises(){
 
 function startTest(count){if(state.vocab.length<4)return toast('Cần ít nhất 4 từ để tạo bài kiểm tra.','error');const qs=makeQuestions(state.vocab,Math.min(count,state.vocab.length));state.test={active:true,questions:qs,index:0,correct:0,answers:[],seconds:Math.max(120,qs.length*20)};state.test.timerId=setInterval(()=>{state.test.seconds--;const e=$('#testTimer');if(e)e.textContent=secondsText(state.test.seconds);if(state.test.seconds<=0)finishTest()},1000);renderTests()}
 function secondsText(n){return `${String(Math.floor(n/60)).padStart(2,'0')}:${String(n%60).padStart(2,'0')}`}
-function stopTest(){if(state.test?.timerId)clearInterval(state.test.timerId);if(state.test?.active)state.test=null}
+function stopTest(){stopListeningTest();if(state.test?.timerId)clearInterval(state.test.timerId);if(state.test?.active)state.test=null}
 async function finishTest(){if(!state.test?.active)return;clearInterval(state.test.timerId);const t=state.test;t.active=false;t.score=Math.round(t.correct/t.questions.length*100);await store.saveTestResult(state.user,{score:t.score,correct:t.correct,total:t.questions.length,answers:t.answers});state.testResults=await store.getTestResults(state.user);renderTests()}
 function renderTests(){
-  if(!state.test){viewRoot.innerHTML=`${pageTitle('Kiểm tra','Chọn số câu, làm có thời gian và lưu kết quả')}<div class="dashboard-grid"><div class="panel"><h2>10 câu</h2><p class="muted">Bài ngắn để kiểm tra nhanh.</p><button class="btn primary" data-start-test="10">Bắt đầu</button></div><div class="panel"><h2>20 câu</h2><p class="muted">Bao quát nhiều từ hơn.</p><button class="btn primary" data-start-test="20">Bắt đầu</button></div><div class="panel"><h2>30 câu</h2><p class="muted">Thử thách dài hơn nếu đủ từ.</p><button class="btn primary" data-start-test="30">Bắt đầu</button></div></div><div class="panel section-gap"><div class="panel-title"><h3>🕘 Lịch sử kiểm tra</h3></div><div class="table-scroll"><table class="leaderboard"><thead><tr><th>Ngày</th><th>Điểm</th><th>Đúng</th></tr></thead><tbody>${state.testResults.slice(0,10).map(r=>`<tr><td>${fmtDate(r.createdAt)}</td><td><b>${r.score}%</b></td><td>${r.correct}/${r.total}</td></tr>`).join('')||`<tr><td colspan="3">Chưa có dữ liệu</td></tr>`}</tbody></table></div></div>`;$$('[data-start-test]').forEach(b=>b.onclick=()=>startTest(Number(b.dataset.startTest)));return}
+  if(state.listening){renderListeningTest();return;}
+  if(!state.test){viewRoot.innerHTML=`${pageTitle('Kiểm tra','Bài nghe có trọng âm hoặc bài chọn nghĩa có thời gian')}${listeningSetupHtml()}<h2 class="section-gap">Kiểm tra chọn nghĩa</h2><div class="dashboard-grid"><div class="panel"><h2>10 câu</h2><p class="muted">Bài ngắn để kiểm tra nhanh.</p><button class="btn primary" data-start-test="10">Bắt đầu</button></div><div class="panel"><h2>20 câu</h2><p class="muted">Bao quát nhiều từ hơn.</p><button class="btn primary" data-start-test="20">Bắt đầu</button></div><div class="panel"><h2>30 câu</h2><p class="muted">Thử thách dài hơn nếu đủ từ.</p><button class="btn primary" data-start-test="30">Bắt đầu</button></div></div><div class="panel section-gap"><div class="panel-title"><h3>🕘 Lịch sử kiểm tra</h3></div><div class="table-scroll"><table class="leaderboard"><thead><tr><th>Ngày</th><th>Điểm</th><th>Đúng</th></tr></thead><tbody>${state.testResults.slice(0,10).map(r=>`<tr><td>${fmtDate(r.createdAt)}</td><td><b>${r.score}%</b></td><td>${r.correct}/${r.total}</td></tr>`).join('')||`<tr><td colspan="3">Chưa có dữ liệu</td></tr>`}</tbody></table></div></div>`;$$('[data-start-test]').forEach(b=>b.onclick=()=>startTest(Number(b.dataset.startTest)));bindListeningSetup();return}
   const t=state.test;if(!t.active){viewRoot.innerHTML=`${pageTitle('Kết quả kiểm tra','Kết quả đã được lưu')}<div class="panel quiz-card score-box"><div class="score-number">${t.score}%</div><h2>${t.correct}/${t.questions.length} câu đúng</h2><p class="muted">${t.score>=80?'Rất ổn! Tiếp tục giữ nhịp học.':t.score>=60?'Khá tốt. Ôn thêm các từ sai để chắc hơn.':'Nên quay lại mục Ôn bài và luyện từ khó.'}</p><div class="flex gap-8" style="justify-content:center"><button class="btn primary" id="newTest">Làm bài mới</button><button class="btn secondary" id="reviewWrong">Ôn từ sai</button></div></div>`;$('#newTest').onclick=()=>{state.test=null;renderTests()};$('#reviewWrong').onclick=()=>{state.test=null;navigate('review')};return}
   const q=t.questions[t.index];viewRoot.innerHTML=`${pageTitle('Kiểm tra',`Câu ${t.index+1}/${t.questions.length}`,`<div class="timer">⏱ <span id="testTimer">${secondsText(t.seconds)}</span></div>`)}<div class="panel quiz-card"><div class="quiz-progress"><span style="width:${t.index/t.questions.length*100}%"></span></div><span class="badge">Chọn nghĩa đúng</span><div class="solo-word">${esc(q.word.word)}</div><div class="choice-list">${q.choices.map(c=>`<button class="choice" data-test-choice="${esc(c)}">${esc(c)}</button>`).join('')}</div></div>`;$$('[data-test-choice]').forEach(b=>b.onclick=async()=>{const correct=b.dataset.testChoice===q.word.meaning;t.answers.push({wordId:q.word.id,answer:b.dataset.testChoice,correct});if(correct){t.correct++;await store.updateWordProgress(state.user,q.word.id,{mastered:true,lastReviewed:Date.now()})}else{const p=state.progress[q.word.id]||{};await store.updateWordProgress(state.user,q.word.id,{mastered:false,wrongCount:(p.wrongCount||0)+1,lastReviewed:Date.now()})}state.progress=await store.getProgress(state.user);t.index++;if(t.index>=t.questions.length)await finishTest();else renderTests()});
+}
+
+function listeningSetupHtml(){
+  const selected=state.listeningSessions||[state.session];
+  const pool=listeningPool(state.vocab,selected);
+  return `<section class="panel listening-setup"><div class="listening-banner"><span>🎧</span><div><span class="auth-kicker">BÀI KIỂM TRA MỚI</span><h2>Nghe · viết từ · trọng âm</h2><p>20 từ, 15 giây mỗi câu. Đạt từ 75% để hoàn thành.</p></div></div><div class="listening-rules"><span>3 lượt đọc / câu</span><span>0s · 5s · 10s</span><span>15s rà soát</span><span>Chấm trong tối đa 12s</span></div><p>Điền theo mẫu <b>english (1): nghĩa tiếng Việt</b>. Có thể viết hoa hoặc thường; trọng âm chỉ ghi số. Ghi một nghĩa đã học, có đủ dấu tiếng Việt.</p><p class="muted">Cũng chấp nhận dạng <b>english + (1): nghĩa tiếng Việt</b>. Đồng hồ vẫn chạy khi chuyển tab. Câu hết 15 giây sẽ tự chuyển, kể cả chưa điền xong.</p><fieldset class="listening-lessons"><legend>Tích chọn một hoặc nhiều buổi</legend>${state.lessons.map(l=>`<label><input type="checkbox" data-listen-session="${l.number}" ${selected.map(Number).includes(Number(l.number))?'checked':''}><div><b>${esc(l.name)}</b><small>${esc(categoryName(l.categoryId))} · ${listeningPool(state.vocab,[l.number]).length} từ đủ dữ liệu</small></div></label>`).join('')||'<p class="muted">Chưa có buổi học. Giáo viên cần thêm từ vựng trước.</p>'}</fieldset><div class="listen-ready"><span id="listenPoolCount">${pool.length}/20 từ khác nhau đủ dữ liệu</span><div class="flex gap-8"><button class="btn secondary" id="listenSoundCheck">🔊 Nghe thử</button><button class="btn primary" id="startListening" ${pool.length<20?'disabled':''}>Bắt đầu bài nghe 20 câu →</button></div></div><p class="muted">Cần ít nhất 20 từ khác nhau có nghĩa và trọng âm. Nếu thiếu, chọn thêm buổi; giáo viên có thể bổ sung hoặc chỉnh trọng âm.</p></section>`;
+}
+function bindListeningSetup(){
+  $$('[data-listen-session]').forEach(c=>c.onchange=()=>{state.listeningSessions=$$('[data-listen-session]:checked').map(x=>Number(x.dataset.listenSession));const pool=listeningPool(state.vocab,state.listeningSessions);$('#listenPoolCount').textContent=`${pool.length}/20 từ khác nhau đủ dữ liệu`;$('#startListening').disabled=pool.length<20});
+  $('#listenSoundCheck').onclick=()=>speak('Hello');
+  $('#startListening').onclick=()=>startListeningTest($$('[data-listen-session]:checked').map(x=>Number(x.dataset.listenSession)));
+}
+function stopListeningTest(){
+  const t=state.listening;if(!t)return;
+  clearInterval(t.timerId);window.speechSynthesis?.cancel();
+  if(t.active)state.listening=null;
+}
+function startListeningTest(selected){
+  if(!window.speechSynthesis||typeof SpeechSynthesisUtterance==='undefined')return toast('Trình duyệt này chưa hỗ trợ đọc từ tiếng Anh.','error');
+  try{
+    stopListeningTest();state.test=null;
+    state.listening=createListeningAttempt(state.vocab,selected);state.listeningSessions=selected;
+    state.listening.timerId=setInterval(tickListeningTest,200);
+    tickListeningTest();
+  }catch(err){toast(err.message,'error');}
+}
+function playListeningWord(t,index,windowIndex){
+  if(state.listening!==t||t.phase!=='questions')return;
+  const utterance=new SpeechSynthesisUtterance(t.questions[index].word);utterance.lang='en-US';utterance.rate=.85;
+  const voices=window.speechSynthesis.getVoices();const voice=voices.find(v=>/^en-US$/i.test(v.lang))||voices.find(v=>/^en[-_]/i.test(v.lang));if(voice)utterance.voice=voice;
+  utterance.onerror=e=>{if(['interrupted','canceled'].includes(e.error)||state.listening!==t||t.phase!=='questions'||t.index!==index)return;t.phase='audio-error';t.audioError='Chưa phát được âm thanh. Kiểm tra loa và bấm thử lại; câu này sẽ được nghe lại đủ 15 giây.';renderListeningTest();};
+  window.speechSynthesis.cancel();window.speechSynthesis.speak(utterance);
+  const label=$('#listenReplay');if(label)label.textContent=`Lượt đọc ${windowIndex+1}/3`;
+}
+function tickListeningTest(){
+  const t=state.listening;if(!t?.active||t.phase==='audio-error')return;
+  const clock=listeningClock(t);
+  if(clock.phase==='questions'){
+    if(t.index!==clock.index){
+      for(let i=Math.max(0,t.index);i<clock.index;i++)t.timedOut[i]=!parseListeningAnswer(t.answers[i]);
+      t.index=clock.index;t.phase='questions';renderListeningTest();
+    }
+    const timer=$('#listenTimer');if(timer)timer.textContent=clock.seconds+'s';
+    const bar=$('#listenQuestionBar');if(bar)bar.style.width=(clock.seconds/15*100)+'%';
+    const bit=1<<clock.window;
+    if(!(t.spoken[t.index]&bit)){t.spoken[t.index]|=bit;playListeningWord(t,t.index,clock.window);}
+    return;
+  }
+  if(clock.phase==='review'){
+    if(t.phase!=='review'){for(let i=Math.max(0,t.index);i<20;i++)t.timedOut[i]=!parseListeningAnswer(t.answers[i]);t.phase='review';window.speechSynthesis.cancel();renderListeningTest();}
+    const timer=$('#listenReviewTimer');if(timer)timer.textContent=clock.seconds+'s';return;
+  }
+  completeListeningTest(t);
+}
+function renderListeningTest(){
+  const t=state.listening;if(!t)return;
+  if(t.phase==='audio-error'){
+    viewRoot.innerHTML=`${pageTitle('Kiểm tra nghe','Âm thanh chưa sẵn sàng')}<div class="panel quiz-card"><h2>🔊 Kiểm tra âm thanh</h2><p>${esc(t.audioError)}</p><button class="btn primary" id="retryListenAudio">Thử lại câu này</button></div>`;
+    $('#retryListenAudio').onclick=()=>{t.startedAt=Date.now()-t.index*15000;t.reviewEndsAt=t.startedAt+315000;t.spoken[t.index]=0;t.phase='questions';renderListeningTest();tickListeningTest();};return;
+  }
+  if(t.phase==='questions'){
+    const clock=listeningClock(t);
+    viewRoot.innerHTML=`${pageTitle('Kiểm tra nghe',`Câu ${t.index+1}/20 · chỉ nghe, không hiện đáp án`,`<div class="timer listening-clock">⏱ <span id="listenTimer">${clock.seconds}s</span></div>`)}<section class="panel quiz-card listening-question"><div class="quiz-top"><span class="badge">${esc(lessonName(t.questions[t.index].session))}</span><span id="listenReplay">Lượt đọc ${clock.window+1}/3</span></div><div class="listen-wave" aria-hidden="true">${Array(9).fill('<i></i>').join('')}</div><h2>Nghe và điền câu trả lời</h2><div class="quiz-progress"><span id="listenQuestionBar" style="width:${clock.seconds/15*100}%"></span></div><form id="listenAnswerForm"><label for="listenAnswer">Từ tiếng Anh (trọng âm): nghĩa tiếng Việt</label><input class="form-control listening-answer" id="listenAnswer" value="${esc(t.answers[t.index])}" placeholder="english (1): nghĩa tiếng Việt" autocomplete="off" autocapitalize="off" spellcheck="false"><p id="listenSyntaxHint" class="muted" aria-live="polite">${parseListeningAnswer(t.answers[t.index])?'Đúng cú pháp ✓':'Ví dụ cú pháp: example (1): nghĩa tiếng Việt'}</p></form><p class="muted">Câu trả lời được giữ ngay khi gõ. Hết 15 giây sẽ tự chuyển; bạn có 15 giây rà soát sau câu cuối.</p><div class="quiz-progress"><span style="width:${t.index/20*100}%"></span></div><div class="listening-rules"><span>Đã qua ${t.index}/20 câu</span><span>Đọc tại 0s · 5s · 10s</span></div></section>`;
+    const index=t.index;$('#listenAnswerForm').onsubmit=e=>e.preventDefault();
+    $('#listenAnswer').oninput=e=>{if(state.listening!==t||t.phase!=='questions'||listeningClock(t).index!==index){tickListeningTest();return;}t.answers[index]=e.target.value;$('#listenSyntaxHint').textContent=parseListeningAnswer(e.target.value)?'Đúng cú pháp ✓':'Cần dạng: english (1): nghĩa tiếng Việt';};
+    $('#listenAnswer').focus();return;
+  }
+  if(t.phase==='review'){
+    viewRoot.innerHTML=`${pageTitle('Rà soát chính tả & cú pháp','15 giây cuối: sửa các câu đã điền, chưa hiện đáp án',`<div class="timer listening-clock">⏱ <span id="listenReviewTimer">${listeningClock(t).seconds}s</span></div>`)}<section class="panel"><p>Hết thời gian này, bài sẽ tự khóa và chấm trong tối đa 12 giây. Chữ hoa/thường đều được; nhớ ngoặc, dấu hai chấm và dấu tiếng Việt.</p><div class="listening-review">${t.answers.map((a,i)=>`<label><span>Câu ${i+1}${t.timedOut[i]?'<small>Chưa đủ cú pháp lúc hết giờ</small>':''}</span><input class="form-control" data-listen-review="${i}" value="${esc(a)}" placeholder="english (1): nghĩa tiếng Việt" autocomplete="off" autocapitalize="off" spellcheck="false"></label>`).join('')}</div></section>`;
+    $$('[data-listen-review]').forEach(input=>input.oninput=e=>{if(state.listening!==t||t.phase!=='review'||Date.now()>=t.reviewEndsAt){tickListeningTest();return;}t.answers[Number(input.dataset.listenReview)]=e.target.value;});return;
+  }
+  if(t.phase==='grading'){viewRoot.innerHTML=`${pageTitle('Đang chấm bài','Câu trả lời đã được khóa')}<div class="panel quiz-card score-box"><h2>Đang kiểm tra 20 câu...</h2><p>Kết quả sẽ hiện trong tối đa 12 giây.</p></div>`;return;}
+  const r=t.result;
+  viewRoot.innerHTML=`${pageTitle('Kết quả kiểm tra nghe','Từ · trọng âm · nghĩa · cú pháp')}<section class="panel quiz-card score-box"><div class="score-number">${r.score}%</div><h2>${r.correct}/20 câu đúng · ${r.passed?'ĐẠT ✓':'CẦN HỌC LẠI'}</h2><p>${r.passed?'Bạn đã đạt mốc 75%. Tiếp tục luyện để nhớ lâu hơn.':'Chưa đạt 75%. Học lại các buổi đã chọn và luyện các từ sai.'}</p><p id="listenSaveStatus" class="muted">${t.saveStatus==='saved'?(t.progressWarning?'Đã lưu điểm; một số tiến độ từ chưa đồng bộ.':'Đã lưu kết quả.'):t.saveStatus==='failed'?'Chưa lưu được lên tài khoản. Kết quả vẫn đang hiển thị ở đây.':'Đang lưu kết quả và cập nhật từ cần ôn...'}</p><div class="flex gap-8" style="justify-content:center"><button class="btn primary" id="listenNewTest">Chọn buổi & làm bài mới</button><button class="btn secondary" id="listenLearnAgain">${r.passed?'Ôn từ sai':'Học lại buổi đã chọn'}</button>${t.saveStatus==='failed'?'<button class="btn secondary" id="listenSaveRetry">Thử lưu lại</button>':''}</div></section><section class="panel section-gap"><div class="panel-title"><h3>Đối chiếu 20 câu</h3><span class="badge">Mỗi câu đúng đủ 3 phần = 5%</span></div><div class="listening-result-list">${r.answers.map((a,i)=>`<article class="listening-result ${a.correct?'correct':'wrong'}"><div><b>${i+1}. ${esc(a.word)}</b><span class="badge">${a.correct?'Đúng ✓':!a.syntax?'Sai cú pháp / để trống':'Chưa đúng'}</span></div><p><b>Bạn điền:</b> ${esc(a.answer||'(chưa điền)')}</p><p><b>Đáp án:</b> ${esc(a.expected)}</p><small>Từ ${a.wordCorrect?'✓':'✗'} · Trọng âm ${a.stressCorrect?'✓':'✗'} · Nghĩa ${a.meaningCorrect?'✓':'✗'} · Cú pháp ${a.syntax?'✓':'✗'}</small></article>`).join('')}</div></section>`;
+  $('#listenNewTest').onclick=()=>{state.listening=null;state.test=null;renderTests();};
+  $('#listenLearnAgain').onclick=()=>{const selected=t.sessions;state.listening=null;state.session=selected[0]||state.session;navigate(r.passed?'review':'learn');};
+  $('#listenSaveRetry')?.addEventListener('click',()=>persistListeningResult(t));
+}
+function completeListeningTest(t){
+  if(state.listening!==t||!t.active)return;
+  t.active=false;t.phase='grading';clearInterval(t.timerId);window.speechSynthesis?.cancel();renderListeningTest();
+  t.result=gradeListeningAttempt(t);t.phase='result';t.saveStatus='saving';
+  state.testResults=[{...t.result,createdAt:Date.now()},...state.testResults.filter(r=>r.attemptId!==t.attemptId)];
+  renderListeningTest();persistListeningResult(t);
+}
+async function persistListeningResult(t){
+  if(t.saving||t.saveStatus==='saved')return;t.saving=true;t.saveStatus='saving';const user=state.user;
+  try{
+    await store.saveTestResult(user,t.result);
+    t.saveStatus='saved';
+    if(!t.progressStarted){
+      t.progressStarted=true;
+      const progressJobs=t.result.answers.map(a=>{const p=state.progress[a.wordId]||{};return store.updateWordProgress(user,a.wordId,{mastered:a.correct,wrongCount:(p.wrongCount||0)+(a.correct?0:1),lastReviewed:Date.now()});});
+      const progressResults=await Promise.allSettled(progressJobs);
+      t.progressWarning=progressResults.some(r=>r.status==='rejected');
+    }
+    if(state.user?.uid===user.uid){
+      const [results,progress]=await Promise.allSettled([store.getTestResults(user),store.getProgress(user)]);
+      if(results.status==='fulfilled')state.testResults=results.value;
+      if(progress.status==='fulfilled'){state.progress=progress.value;updateSidebarProgress();}
+      else t.progressWarning=true;
+    }
+  }catch(err){t.saveStatus='failed';console.warn('Listening result save failed:',err.message)}
+  finally{t.saving=false;if(state.listening===t&&state.view==='tests'&&t.phase==='result')renderListeningTest();}
 }
 
 function startSolo(){if(state.vocab.length<4)return toast('Cần ít nhất 4 từ vựng.','error');state.solo={active:true,seconds:60,score:0,correct:0,total:0,current:null};nextSoloQuestion();state.solo.timerId=setInterval(()=>{state.solo.seconds--;const e=$('#soloTimer');if(e)e.textContent=state.solo.seconds;if(state.solo.seconds<=0)finishSolo()},1000);renderSolo()}
@@ -233,7 +339,7 @@ function renderSolo(){
 }
 function leaderboardHtml(){return `<div class="table-scroll"><table class="leaderboard"><thead><tr><th>#</th><th>Học viên</th><th>Điểm</th></tr></thead><tbody>${state.leaderboard.map((r,i)=>`<tr><td class="rank">${i<3?['🥇','🥈','🥉'][i]:i+1}</td><td>${esc(r.displayName||'Học viên')}</td><td><b>${r.score}</b></td></tr>`).join('')||`<tr><td colspan="3">Chưa có điểm Solo</td></tr>`}</tbody></table></div>`}
 
-function adminEditorHtml(){const e=state.adminEdit||{};return `<div class="panel admin-editor"><div class="panel-title"><h3>${e.id?'Sửa':'Thêm'} từ vựng</h3><span class="badge">Tra nghĩa & chọn ảnh</span></div><form id="adminForm" class="admin-form"><label>Từ tiếng Anh<input class="form-control" id="aWord" required value="${esc(e.word||'')}"></label><fieldset class="pos-picker"><legend>Loại từ · chọn nhiều</legend>${POS_TYPES.map(p=>`<label><input type="checkbox" name="aPos" value="${p}" ${vocabularyParts(e).includes(p)?'checked':''}> ${p}</label>`).join('')}<small id="posHint" class="muted">Tra từ để xem những loại từ có trong từ điển.</small></fieldset><label>Buổi học<select class="form-control" id="aSession" required>${state.lessons.map(l=>`<option value="${l.number}" ${l.number===Number(e.session||state.session)?'selected':''}>${esc(l.name)} · ${esc(categoryName(l.categoryId))}</option>`).join('')}</select></label><label>Chủ đề<input class="form-control" id="aTopic" value="${esc(e.topic||'')}"></label><div class="full-span flex gap-8"><button class="btn secondary" type="button" id="aiBtn">✨ Tự điền nghĩa, ví dụ & ảnh</button><a class="btn secondary" id="googleTranslateBtn" href="${esc(googleTranslateUrl(e.word||''))}" target="_blank" rel="noopener noreferrer">Google Dịch ↗</a><span id="aiStatus" class="muted" aria-live="polite"></span></div><div class="full-span muted">Tra tự động bằng MyMemory + Wiktionary. Có hạn mức miễn phí; bạn có thể chỉnh nghĩa, ví dụ và ảnh trước khi lưu.</div><label>Nghĩa tiếng Việt<input class="form-control" id="aMeaning" required value="${esc(e.meaning||'')}"></label><label>IPA<input class="form-control" id="aIpa" value="${esc(e.ipa||'')}"></label><label class="full-span">Ví dụ<input class="form-control" id="aExample" value="${esc(e.example||'')}"></label><label class="full-span">URL ảnh<input class="form-control" id="aImage" value="${esc(e.imageUrl||'')}"></label><div class="full-span flex gap-8"><input class="form-control" id="imageQuery" aria-label="Từ khóa tìm ảnh" placeholder="Từ khóa ảnh cụ thể, ví dụ: school classroom"><button class="btn secondary" type="button" id="imageSearchBtn">Tìm ảnh</button><button class="btn ghost" type="button" id="clearImageBtn">Bỏ ảnh</button></div><div class="full-span" id="imageArea">${adminImageHtml()}</div><div class="full-span flex gap-8"><button class="btn primary" type="submit">${e.id?'Cập nhật':'Lưu từ vựng'}</button>${e.id?`<button class="btn ghost" type="button" id="cancelEdit">Hủy sửa</button>`:''}</div></form></div>`}
+function adminEditorHtml(){const e=state.adminEdit||{};return `<div class="panel admin-editor"><div class="panel-title"><h3>${e.id?'Sửa':'Thêm'} từ vựng</h3><span class="badge">Tra nghĩa & chọn ảnh</span></div><form id="adminForm" class="admin-form"><label>Từ tiếng Anh<input class="form-control" id="aWord" required value="${esc(e.word||'')}"></label><fieldset class="pos-picker"><legend>Loại từ · chọn nhiều</legend>${POS_TYPES.map(p=>`<label><input type="checkbox" name="aPos" value="${p}" ${vocabularyParts(e).includes(p)?'checked':''}> ${p}</label>`).join('')}<small id="posHint" class="muted">Tra từ để xem những loại từ có trong từ điển.</small></fieldset><label>Buổi học<select class="form-control" id="aSession" required>${state.lessons.map(l=>`<option value="${l.number}" ${l.number===Number(e.session||state.session)?'selected':''}>${esc(l.name)} · ${esc(categoryName(l.categoryId))}</option>`).join('')}</select></label><label>Chủ đề<input class="form-control" id="aTopic" value="${esc(e.topic||'')}"></label><div class="full-span flex gap-8"><button class="btn secondary" type="button" id="aiBtn">✨ Tự điền nghĩa, ví dụ & ảnh</button><a class="btn secondary" id="googleTranslateBtn" href="${esc(googleTranslateUrl(e.word||''))}" target="_blank" rel="noopener noreferrer">Google Dịch ↗</a><span id="aiStatus" class="muted" aria-live="polite"></span></div><div class="full-span muted">Tra tự động bằng MyMemory + Wiktionary. Có hạn mức miễn phí; bạn có thể chỉnh nghĩa, ví dụ và ảnh trước khi lưu.</div><label>Nghĩa tiếng Việt<input class="form-control" id="aMeaning" required value="${esc(e.meaning||'')}"></label><label>IPA<input class="form-control" id="aIpa" value="${esc(e.ipa||'')}"></label><label>Trọng âm (1, 2, 3...)<input class="form-control" type="number" min="1" max="20" step="1" id="aStress" value="${esc(e.stress||'')}" placeholder="Tự nhận từ IPA nếu để trống"><small class="muted">Giáo viên kiểm tra vị trí âm tiết được nhấn trước khi dùng để thi.</small></label><label>Nghĩa khác được chấp nhận<input class="form-control" id="aAcceptedMeanings" value="${esc((Array.isArray(e.acceptedMeanings)?e.acceptedMeanings:String(e.acceptedMeanings||'').split(';')).join('; '))}" placeholder="Nghĩa 1; nghĩa 2"><small class="muted">Tách bằng dấu ;. Dùng để chấm bài nghe.</small></label><label class="full-span">Ví dụ<input class="form-control" id="aExample" value="${esc(e.example||'')}"></label><label class="full-span">URL ảnh<input class="form-control" id="aImage" value="${esc(e.imageUrl||'')}"></label><div class="full-span flex gap-8"><input class="form-control" id="imageQuery" aria-label="Từ khóa tìm ảnh" placeholder="Từ khóa ảnh cụ thể, ví dụ: school classroom"><button class="btn secondary" type="button" id="imageSearchBtn">Tìm ảnh</button><button class="btn ghost" type="button" id="clearImageBtn">Bỏ ảnh</button></div><div class="full-span" id="imageArea">${adminImageHtml()}</div><div class="full-span flex gap-8"><button class="btn primary" type="submit">${e.id?'Cập nhật':'Lưu từ vựng'}</button>${e.id?`<button class="btn ghost" type="button" id="cancelEdit">Hủy sửa</button>`:''}</div></form></div>`}
 function openWordEditor(item=null){state.adminEdit=item?{...item}:null;state.adminImages=[];state.adminSelectedImage=item?.imageUrl||'';state.adminLookupWord=item?.word||'';state.adminLookupSource={dictionarySource:item?.dictionarySource||'',translationSource:item?.translationSource||''};state.adminImageSource=item?.imageSource||'';state.adminImageLicense=item?.imageLicense||'';if(!state.lessons.length)return toast('Tạo danh mục và buổi học trước khi thêm từ.','error');openModal('<button class="btn ghost modal-dismiss" type="button" data-close>Đóng ×</button>'+adminEditorHtml());bindModalClose();bindAdminForm();$('#aWord').focus()}
 function renderAdmin(){
   if(!canTeach()){navigate('dashboard');return}
@@ -277,7 +383,7 @@ function bindAdminForm(){
       state.adminLookupWord=parsed.word;state.adminLookupSource={dictionarySource:r.dictionarySource||'',translationSource:r.translationSource||''};
       $('#aWord').value=parsed.word;applyParts(r.partsOfSpeech||[r.pos]);syncTranslate();
       $('#posHint').textContent='Có trong từ điển: '+(r.availablePartsOfSpeech||r.partsOfSpeech||[r.pos]).join(' / ')+'. Chọn các loại từ bạn muốn học.';
-      if(r.meaning)$('#aMeaning').value=r.meaning;if(r.source!=='local-dictionary'){$('#aIpa').value=r.ipa||'';$('#aExample').value=r.example||''}else{if(r.ipa)$('#aIpa').value=r.ipa;if(r.example)$('#aExample').value=r.example;}
+      if(r.meaning)$('#aMeaning').value=r.meaning;if(!$('#aStress').value&&r.ipa)$('#aStress').value=getWordStress({word:r.word,ipa:r.ipa})||'';if(r.source!=='local-dictionary'){$('#aIpa').value=r.ipa||'';$('#aExample').value=r.example||''}else{if(r.ipa)$('#aIpa').value=r.ipa;if(r.example)$('#aExample').value=r.example;}
       generatedWord=parsed.word;generatedValues={};for(const [id,key]of [['aMeaning','meaning'],['aIpa','ipa'],['aExample','example']])if(r[key])generatedValues[id]=$('#'+id).value;
       $('#aiStatus').textContent=r.note;
       if(r.meaning&&r.imageSearchKeyword){
@@ -294,7 +400,7 @@ function bindAdminForm(){
   $('#imageSearchBtn').onclick=async()=>{const keyword=$('#imageQuery').value.trim();if(!keyword)return toast('Nhập từ khóa ảnh cụ thể trước.','error');$('#imageSearchBtn').disabled=true;try{state.adminImages=await searchCommonsImages(keyword);state.adminSelectedImage=$('#aImage').value;$('#imageArea').innerHTML=state.adminImages.length?adminImageHtml():'<p class="muted">Chưa tìm được ảnh. Thử từ khóa khác hoặc tự nhập URL ảnh.</p>';bindImageChoices()}finally{$('#imageSearchBtn').disabled=false}};
   $('#clearImageBtn').onclick=()=>{$('#aImage').value='';state.adminSelectedImage='';state.adminImageSource='';state.adminImageLicense='';$$('[data-img]').forEach(b=>b.classList.remove('selected'))};
   bindImageChoices();
-  $('#adminForm').onsubmit=async e=>{e.preventDefault();const item={id:state.adminEdit?.id||'',...normalizeVocabularyInput($('#aWord').value,selectedParts()),session:Number($('#aSession').value),topic:$('#aTopic').value.trim(),meaning:$('#aMeaning').value.trim(),ipa:$('#aIpa').value.trim(),example:$('#aExample').value.trim(),...(state.adminLookupWord===normalizeVocabularyInput($('#aWord').value).word?state.adminLookupSource:{dictionarySource:'',translationSource:''}),imageUrl:$('#aImage').value.trim(),imageSource:$('#aImage').value.trim()?state.adminImageSource||'':'',imageLicense:$('#aImage').value.trim()?state.adminImageLicense||'':'',emoji:'📝'};if(!state.lessons.some(l=>l.number===item.session))return toast('Tạo hoặc chọn một buổi học trước.','error');if(!item.partsOfSpeech.length)return toast('Chọn ít nhất một loại từ.','error');if(!item.word||!item.meaning)return toast('Thiếu từ hoặc nghĩa.','error');try{await store.saveVocabulary(item);modal.close();state.adminEdit=null;state.adminImages=[];state.adminSelectedImage='';await refreshData();toast('Đã lưu từ vựng.','success');renderAdmin()}catch(err){console.error(err);toast('Không lưu được: '+err.message,'error')}};
+  $('#adminForm').onsubmit=async e=>{e.preventDefault();const item={id:state.adminEdit?.id||'',...normalizeVocabularyInput($('#aWord').value,selectedParts()),session:Number($('#aSession').value),topic:$('#aTopic').value.trim(),meaning:$('#aMeaning').value.trim(),ipa:$('#aIpa').value.trim(),stress:$('#aStress').value?Number($('#aStress').value):null,acceptedMeanings:$('#aAcceptedMeanings').value.split(';').map(s=>s.trim()).filter(Boolean),example:$('#aExample').value.trim(),...(state.adminLookupWord===normalizeVocabularyInput($('#aWord').value).word?state.adminLookupSource:{dictionarySource:'',translationSource:''}),imageUrl:$('#aImage').value.trim(),imageSource:$('#aImage').value.trim()?state.adminImageSource||'':'',imageLicense:$('#aImage').value.trim()?state.adminImageLicense||'':'',emoji:'📝'};if(!state.lessons.some(l=>l.number===item.session))return toast('Tạo hoặc chọn một buổi học trước.','error');if(item.stress!==null&&(!Number.isInteger(item.stress)||item.stress<1||item.stress>20))return toast('Trọng âm phải là số từ 1 đến 20.','error');if(!item.partsOfSpeech.length)return toast('Chọn ít nhất một loại từ.','error');if(!item.word||!item.meaning)return toast('Thiếu từ hoặc nghĩa.','error');try{await store.saveVocabulary(item);modal.close();state.adminEdit=null;state.adminImages=[];state.adminSelectedImage='';await refreshData();toast('Đã lưu từ vựng.','success');renderAdmin()}catch(err){console.error(err);toast('Không lưu được: '+err.message,'error')}};
 }
 function bindImageChoices(){$$('[data-img]').forEach(b=>b.onclick=()=>{const im=state.adminImages[Number(b.dataset.img)];state.adminSelectedImage=im.url;state.adminImageSource=im.source||'';state.adminImageLicense=im.license||'';$('#aImage').value=im.url;$$('[data-img]').forEach(x=>x.classList.toggle('selected',x===b))})}
 

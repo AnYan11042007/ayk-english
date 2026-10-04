@@ -264,3 +264,13 @@ https://TEN_GITHUB.github.io/ayk-english/
 
 ### Làm lại nội dung lớp học
 Admin có nút Dọn toàn bộ nội dung: tạo bản lưu ở contentArchives rồi làm trống vocabulary/categories/lessons bằng một lần cập nhật. Tài khoản, tiến độ, kết quả kiểm tra giữ nguyên. Khôi phục bản lưu chỉ được phép khi thư viện trống. Database thật trống sẽ không tự nạp từ mẫu. Cần Publish database.rules.json mới trước khi dùng tính năng dọn. Giáo viên có thể sửa/xóa từ và quản lý danh mục, buổi học; chỉ admin dọn/khôi phục toàn bộ.
+
+
+## Kiểm tra nghe và trọng âm
+
+- Trong Kiểm tra, tích một hoặc nhiều buổi; cần ít nhất 20 từ khác nhau có nghĩa và trọng âm. Bài chọn ngẫu nhiên 20 từ, ưu tiên lấy từ từng buổi đã chọn.
+- Đọc từ bằng giọng tiếng Anh của trình duyệt tại 0, 5, 10 giây; tự chuyển câu sau 15 giây. Đồng hồ dùng mốc thời gian thực, tiếp tục chạy khi chuyển tab.
+- Cú pháp: `english (1): nghĩa tiếng Việt`, cũng nhận `english + (1): nghĩa tiếng Việt`. Không phân biệt hoa/thường, chuẩn hóa Unicode; vẫn yêu cầu dấu tiếng Việt, đúng từ, trọng âm dạng số và nghĩa hợp lệ đã lưu. Mỗi câu phải đúng đủ các phần mới nhận 5 điểm.
+- Sau 20 câu có 15 giây rà soát tất cả câu trả lời. Chấm cục bộ ngay sau khi khóa bài, trong giới hạn 12 giây; lưu Firebase không chặn màn hình kết quả. Từ 15/20 (75%) là đạt, dưới mức này yêu cầu học lại.
+- Giáo viên có ô trọng âm và nghĩa khác được chấp nhận. Suy luận trọng âm từ IPA là hỗ trợ ban đầu, giáo viên cần kiểm tra; cụm nhiều từ và từ thiếu dữ liệu bị loại khỏi bài.
+- Kết quả lưu với mã bài duy nhất để thử lại khi lỗi mạng không tạo hai bản ghi. Đây là bài tự luyện trên trình duyệt, không phải bài thi có giám sát. Máy cần hỗ trợ Web Speech và có giọng đọc tiếng Anh.
