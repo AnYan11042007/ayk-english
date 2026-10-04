@@ -1,15 +1,15 @@
-import { renderGacha, stopGachaPreview, showCompanion, clearCompanion, reactCompanion } from './gacha-ui.js?v=gacha-v22';
-import { studySummary, addStudyWord } from './motivation.js?v=gacha-v22';
-import { animateStudyView, celebrateStudy, setupStudyEffects } from './effects.js?v=gacha-v22';
-import { RAPID_MODES, createRapidGame, beginRapidQuestion, submitRapidAnswer, advanceRapidGame } from './rapid-games.js?v=gacha-v22';
+import { renderGacha, renderInventory, stopGachaPreview, showCompanion, clearCompanion, reactCompanion } from './gacha-ui.js?v=inventory-v23';
+import { studySummary, addStudyWord } from './motivation.js?v=inventory-v23';
+import { animateStudyView, celebrateStudy, setupStudyEffects } from './effects.js?v=inventory-v23';
+import { RAPID_MODES, createRapidGame, beginRapidQuestion, submitRapidAnswer, advanceRapidGame } from './rapid-games.js?v=inventory-v23';
 import {defaultCategories, buildLessons, categoryForWord} from './curriculum.js';
 import { firebaseReady, auth, fAuth } from './firebase.js';
 import { firebaseConfig, isFirebaseConfigured } from './firebase-config.js';
-import * as store from './store.js?v=gacha-v22';
-import { aiLookup, searchCommonsImages, normalizeVocabularyInput, googleTranslateUrl, cambridgeDictionaryUrl } from './ai.js?v=gacha-v22';
-import { POS_TYPES, vocabularyParts, vocabularyPosLabel } from './vocabulary.js?v=gacha-v22';
-import { lookupPronunciationAudio, loadPronunciationElement } from './pronunciation-audio.js?v=gacha-v22';
-import { LISTENING_RULES, getWordStress, pronunciationStress, listeningAnswerFields, listeningPool, createListeningAttempt, listeningClock, parseListeningAnswer, gradeListeningAttempt } from './listening-test.js?v=gacha-v22';
+import * as store from './store.js?v=inventory-v23';
+import { aiLookup, searchCommonsImages, normalizeVocabularyInput, googleTranslateUrl, cambridgeDictionaryUrl } from './ai.js?v=inventory-v23';
+import { POS_TYPES, vocabularyParts, vocabularyPosLabel } from './vocabulary.js?v=inventory-v23';
+import { lookupPronunciationAudio, loadPronunciationElement } from './pronunciation-audio.js?v=inventory-v23';
+import { LISTENING_RULES, getWordStress, pronunciationStress, listeningAnswerFields, listeningPool, createListeningAttempt, listeningClock, parseListeningAnswer, gradeListeningAttempt } from './listening-test.js?v=inventory-v23';
 
 const $ = (s,root=document)=>root.querySelector(s);
 const $$ = (s,root=document)=>[...root.querySelectorAll(s)];
@@ -67,7 +67,7 @@ async function bootstrapUser(user){
   $('#userName').textContent=userDisplayName();$('#avatar').textContent=initials(userDisplayName());
   $('#adminNav').classList.toggle('hidden',!canTeach());
   loginScreen.classList.add('hidden');appEl.classList.remove('hidden');
-  const allowed=['dashboard','learn','review','vocabulary','sessions','tests','games','gacha',...(canTeach()?['admin']:[])];
+  const allowed=['dashboard','learn','review','vocabulary','sessions','tests','games','gacha','inventory',...(canTeach()?['admin']:[])];
   state.view=['solo','exercises'].includes(resume?.view)?'games':allowed.includes(resume?.view)?resume.view:canTeach()?'admin':'dashboard';
   if(user.isDemo)saved.set('ayk_demo_session',true);else saved.remove('ayk_demo_session');
   finishLoading();
@@ -100,7 +100,7 @@ function navigate(view){
 
 function renderView(){
   stopGachaPreview();
-  const renderers={dashboard:renderDashboard,learn:renderLearn,review:renderReview,vocabulary:renderVocabulary,sessions:renderSessions,tests:renderTests,admin:renderAdmin,games:renderGames,gacha:()=>renderGacha(viewRoot,state.user,store,{toast,navigate})};
+  const renderers={dashboard:renderDashboard,learn:renderLearn,review:renderReview,vocabulary:renderVocabulary,sessions:renderSessions,tests:renderTests,admin:renderAdmin,games:renderGames,gacha:()=>renderGacha(viewRoot,state.user,store,{toast,navigate}),inventory:()=>renderInventory(viewRoot,state.user,store,{toast,navigate})};
   (renderers[state.view]||renderDashboard)();
 }
 
@@ -241,7 +241,7 @@ function renderTests(){
 function listeningSetupHtml(){
   const selected=state.listeningSessions||[state.session];
   const pool=listeningPool(state.vocab,selected);
-  return `<section class="panel listening-setup"><div class="listening-banner"><span>🎧</span><div><span class="auth-kicker">BÀI KIỂM TRA MỚI</span><h2>Nghe · viết từ · trọng âm</h2><p>20 từ, 30 giây mỗi câu. Đạt từ 75% để hoàn thành.</p></div></div><div class="listening-rules"><span>3 lượt đọc / câu</span><span>0s · 10s · 20s</span><span>15s rà soát</span><span>Chấm trong tối đa 12s</span></div><p>Điền nhanh vào 3 ô: <b>Tiếng Anh | Trọng âm (1/2/3/...) | Tiếng Việt</b>. Có thể viết hoa hoặc thường. Ghi một nghĩa đã học, có đủ dấu tiếng Việt.</p><p class="muted">Mỗi lần nghe có 10 giây để điền. Đồng hồ vẫn chạy khi chuyển tab. Hết 30 giây sẽ tự chuyển câu. Bấm Bỏ bài & chấm ngay để kết thúc sớm.</p><fieldset class="listening-lessons"><legend>Tích chọn một hoặc nhiều buổi</legend>${state.lessons.map(l=>`<label><input type="checkbox" data-listen-session="${l.number}" ${selected.map(Number).includes(Number(l.number))?'checked':''}><div><b>${esc(l.name)}</b><small>${esc(categoryName(l.categoryId))} · ${listeningPool(state.vocab,[l.number]).length} từ đủ dữ liệu</small></div></label>`).join('')||'<p class="muted">Chưa có buổi học. Giáo viên cần thêm từ vựng trước.</p>'}</fieldset><div class="listen-ready"><span id="listenPoolCount">${pool.length}/20 từ khác nhau đủ dữ liệu</span><div class="flex gap-8"><button class="btn secondary" id="listenSoundCheck">🔊 Nghe thử</button><button class="btn primary" id="startListening" ${pool.length<20?'disabled':''}>Bắt đầu bài nghe 20 câu →</button></div></div><p class="muted">Cần ít nhất 20 từ khác nhau có nghĩa và trọng âm. Nếu thiếu, chọn thêm buổi; giáo viên có thể bổ sung hoặc chỉnh trọng âm.</p></section>`;
+  return `<section class="panel listening-setup"><div class="listening-banner listening-reward-banner"><span class="reward-headphones">🎧</span><div><span class="auth-kicker">BÀI KIỂM TRA MỚI</span><h2>Nghe · viết từ · trọng âm</h2><p>20 từ, 30 giây mỗi câu. Đạt từ 75% để hoàn thành.</p><div class="listen-ticket-reward"><span>🎟</span><b>Đạt ≥75% · Nhận 1 vé Gacha AYK</b><i>✦</i></div><p class="reward-caption">Mỗi bài đạt nhận một vé — lưu lại không nhận trùng.</p></div></div><div class="listening-rules"><span>3 lượt đọc / câu</span><span>0s · 10s · 20s</span><span>15s rà soát</span><span>Chấm trong tối đa 12s</span></div><p>Điền nhanh vào 3 ô: <b>Tiếng Anh | Trọng âm (1/2/3/...) | Tiếng Việt</b>. Có thể viết hoa hoặc thường. Ghi một nghĩa đã học, có đủ dấu tiếng Việt.</p><p class="muted">Mỗi lần nghe có 10 giây để điền. Đồng hồ vẫn chạy khi chuyển tab. Hết 30 giây sẽ tự chuyển câu. Bấm Bỏ bài & chấm ngay để kết thúc sớm.</p><fieldset class="listening-lessons"><legend>Tích chọn một hoặc nhiều buổi</legend>${state.lessons.map(l=>`<label><input type="checkbox" data-listen-session="${l.number}" ${selected.map(Number).includes(Number(l.number))?'checked':''}><div><b>${esc(l.name)}</b><small>${esc(categoryName(l.categoryId))} · ${listeningPool(state.vocab,[l.number]).length} từ đủ dữ liệu</small></div></label>`).join('')||'<p class="muted">Chưa có buổi học. Giáo viên cần thêm từ vựng trước.</p>'}</fieldset><div class="listen-ready"><span id="listenPoolCount">${pool.length}/20 từ khác nhau đủ dữ liệu</span><div class="flex gap-8"><button class="btn secondary" id="listenSoundCheck">🔊 Nghe thử</button><button class="btn primary" id="startListening" ${pool.length<20?'disabled':''}>Bắt đầu bài nghe 20 câu →</button></div></div><p class="muted">Cần ít nhất 20 từ khác nhau có nghĩa và trọng âm. Nếu thiếu, chọn thêm buổi; giáo viên có thể bổ sung hoặc chỉnh trọng âm.</p></section>`;
 }
 function bindListeningSetup(){
   $$('[data-listen-session]').forEach(c=>c.onchange=()=>{state.listeningSessions=$$('[data-listen-session]:checked').map(x=>Number(x.dataset.listenSession));const pool=listeningPool(state.vocab,state.listeningSessions);$('#listenPoolCount').textContent=`${pool.length}/20 từ khác nhau đủ dữ liệu`;$('#startListening').disabled=pool.length<20});

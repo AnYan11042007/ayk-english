@@ -1,4 +1,4 @@
-import { emptyGacha, awardTicket, applyDraw, CHARACTERS } from './gacha-core.js?v=gacha-v22';
+import { emptyGacha, awardTicket, applyDraw, applySale, CHARACTERS } from './gacha-core.js?v=inventory-v23';
 import { firebaseReady, db, fDb } from './firebase.js';
 import { starterVocabulary } from './starter-data.js';
 
@@ -203,3 +203,5 @@ async function changeGacha(user,transform){
 export async function awardGachaTicket(user,result){return changeGacha(user,g=>awardTicket(g,result));}
 export async function drawGacha(user,drawId,characterId){return changeGacha(user,g=>applyDraw(g,drawId,characterId));}
 export async function equipGacha(user,id){return changeGacha(user,g=>!id?{...g,equipped:''}:g.inventory?.[id]&&CHARACTERS.some(c=>c.id===id)?{...g,equipped:id}:undefined);}
+
+export async function sellGacha(user,saleId,selection){return changeGacha(user,g=>applySale(g,saleId,selection));}
