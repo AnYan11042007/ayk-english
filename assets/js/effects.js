@@ -2,7 +2,7 @@ const reduced=()=>document.body.classList.contains('low-motion')||window.matchMe
 export function animateStudyView(root){
  if(reduced())return;
  const cards=root.querySelectorAll('.welcome-grid,.inspiration-grid,.page-title,.flash-card,.play-card,.journey-step,.vocab-card,.feature-card');
- [...cards].slice(0,30).forEach((el,i)=>el.animate?.([{opacity:0,transform:'translateY(16px)'},{opacity:1,transform:'translateY(0)'}],{duration:420,delay:Math.min(i*25,220),easing:'cubic-bezier(.2,.8,.2,1)',fill:'backwards'}));
+ [...cards].slice(0,30).forEach((el,i)=>el.animate?.([{opacity:0,transform:'translateY(24px) scale(.97)'},{opacity:1,transform:'translateY(0) scale(1)'}],{duration:600,delay:Math.min(i*35,280),easing:'cubic-bezier(.2,.8,.2,1)',fill:'backwards'}));
 }
 export function celebrateStudy(){
  if(reduced()||!document.createElement)return;
@@ -15,7 +15,14 @@ export function celebrateStudy(){
 }
 export function setupStudyEffects(){
  if(!document.addEventListener)return;
- document.addEventListener('click',event=>{
+ let pointerFrame=0;
+ document.addEventListener('pointermove',event=>{
+  if(event.pointerType!=='mouse'||reduced()||pointerFrame)return;
+  const card=event.target.closest?.('.play-card,.feature-card,.vocab-card,.discovery-card');if(!card)return;
+  const x=event.clientX,y=event.clientY;
+  pointerFrame=requestAnimationFrame(()=>{pointerFrame=0;if(!card.isConnected||reduced())return;const rect=card.getBoundingClientRect();card.style.setProperty('--spot-x',(x-rect.left)+'px');card.style.setProperty('--spot-y',(y-rect.top)+'px')});
+ },{passive:true});
+ document.addEventListener('click',event=>{ 
   const button=event.target.closest?.('button');if(!button||button.disabled||reduced())return;
   button.animate?.([{scale:'1'},{scale:'.96'},{scale:'1'}],{duration:220,easing:'ease-out'});
  });
