@@ -1,7 +1,7 @@
 import { starterVocabulary } from './starter-data.js';
 
-import { normalizeVocabularyInput, googleTranslateUrl, readDictionaryEntries } from './vocabulary.js?v=listening-v13';
-import { readWiktionary, validateTranslation } from './lookup-sources.js?v=listening-v13';
+import { normalizeVocabularyInput, googleTranslateUrl, readDictionaryEntries } from './vocabulary.js?v=listening-v14';
+import { readWiktionary, validateTranslation } from './lookup-sources.js?v=listening-v14';
 export { normalizeVocabularyInput, googleTranslateUrl };
 
 const dictionary=Object.fromEntries(starterVocabulary.map(item=>[item.word,item]));

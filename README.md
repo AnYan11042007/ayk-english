@@ -274,3 +274,5 @@ Admin có nút Dọn toàn bộ nội dung: tạo bản lưu ở contentArchives
 - Sau 20 câu có 15 giây rà soát tất cả câu trả lời. Chấm cục bộ ngay sau khi khóa bài, trong giới hạn 12 giây; lưu Firebase không chặn màn hình kết quả. Từ 15/20 (75%) là đạt, dưới mức này yêu cầu học lại.
 - Giáo viên có ô trọng âm và nghĩa khác được chấp nhận. Suy luận trọng âm từ IPA là hỗ trợ ban đầu, giáo viên cần kiểm tra; cụm nhiều từ và từ thiếu dữ liệu bị loại khỏi bài.
 - Kết quả lưu với mã bài duy nhất để thử lại khi lỗi mạng không tạo hai bản ghi. Đây là bài tự luyện trên trình duyệt, không phải bài thi có giám sát. Máy cần hỗ trợ Web Speech và có giọng đọc tiếng Anh.
+
+- Nếu giọng đọc trình duyệt không dùng được, bài tải trước 20 bản ghi âm từ Free Dictionary API/Wiktionary và chỉ tính giờ sau khi học viên bấm bắt đầu. Nguồn và giấy phép âm thanh có trong đối chiếu kết quả. Không tải được đủ âm thanh thì bài chưa bắt đầu.

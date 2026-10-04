@@ -1,10 +1,11 @@
 import {defaultCategories, buildLessons, categoryForWord} from './curriculum.js';
 import { firebaseReady, auth, fAuth } from './firebase.js';
 import { firebaseConfig, isFirebaseConfigured } from './firebase-config.js';
-import * as store from './store.js?v=listening-v13';
-import { aiLookup, searchCommonsImages, normalizeVocabularyInput, googleTranslateUrl } from './ai.js?v=listening-v13';
-import { POS_TYPES, vocabularyParts, vocabularyPosLabel } from './vocabulary.js?v=listening-v13';
-import { LISTENING_RULES, getWordStress, listeningPool, createListeningAttempt, listeningClock, parseListeningAnswer, gradeListeningAttempt } from './listening-test.js?v=listening-v13';
+import * as store from './store.js?v=listening-v14';
+import { aiLookup, searchCommonsImages, normalizeVocabularyInput, googleTranslateUrl } from './ai.js?v=listening-v14';
+import { POS_TYPES, vocabularyParts, vocabularyPosLabel } from './vocabulary.js?v=listening-v14';
+import { lookupPronunciationAudio, loadPronunciationElement } from './pronunciation-audio.js?v=listening-v14';
+import { LISTENING_RULES, getWordStress, listeningPool, createListeningAttempt, listeningClock, parseListeningAnswer, gradeListeningAttempt } from './listening-test.js?v=listening-v14';
 
 const $ = (s,root=document)=>root.querySelector(s);
 const $$ = (s,root=document)=>[...root.querySelectorAll(s)];
@@ -236,28 +237,44 @@ function bindListeningSetup(){
 }
 function stopListeningTest(){
   const t=state.listening;if(!t)return;
-  clearInterval(t.timerId);window.speechSynthesis?.cancel();
+  clearInterval(t.timerId);window.speechSynthesis?.cancel();t.audioElements?.forEach(a=>{a.pause();a.currentTime=0});
   if(t.active)state.listening=null;
 }
 function startListeningTest(selected){
-  if(!window.speechSynthesis||typeof SpeechSynthesisUtterance==='undefined')return toast('Trình duyệt này chưa hỗ trợ đọc từ tiếng Anh.','error');
   try{
     stopListeningTest();state.test=null;
     state.listening=createListeningAttempt(state.vocab,selected);state.listeningSessions=selected;
+    if(!window.speechSynthesis?.getVoices().some(v=>/^en[-_]/i.test(v.lang))||typeof SpeechSynthesisUtterance==='undefined'){prepareListeningAudio(state.listening);return;}
     state.listening.timerId=setInterval(tickListeningTest,200);
     tickListeningTest();
   }catch(err){toast(err.message,'error');}
 }
+async function prepareListeningAudio(t){
+  t.phase='audio-preparing';clearInterval(t.timerId);window.speechSynthesis?.cancel();renderListeningTest();
+  t.audioElements?.forEach(a=>a.pause());const loaded=new Map();let next=0,done=0;
+  try{
+    const outcomes=await Promise.allSettled(Array.from({length:4},async()=>{
+      while(next<t.questions.length&&state.listening===t){const i=next++,q=t.questions[i],record=await lookupPronunciationAudio(q.word);
+        const element=await loadPronunciationElement(record.url);loaded.set(i,element);q.audioSource=record.source;q.audioLicense=record.license;
+        done++;if(state.listening===t){const status=$('#listenAudioLoading');if(status)status.textContent=`Đã sẵn sàng ${done}/20 bản ghi âm`;}
+      }
+    }));
+    if(state.listening!==t){loaded.forEach(a=>a.pause());return;}
+    if(outcomes.some(r=>r.status==='rejected'))throw new Error('Âm thanh chưa đủ.');
+    t.audioElements=t.questions.map((q,i)=>loaded.get(i));t.phase='audio-ready';renderListeningTest();
+  }catch(err){if(state.listening!==t)return;t.phase='audio-error';t.audioError='Chưa tải đủ âm thanh từ từ điển. Bài chưa tính giờ. Kiểm tra mạng rồi thử lại.';t.useRecordedAudio=true;renderListeningTest();}
+}
 function playListeningWord(t,index,windowIndex){
   if(state.listening!==t||t.phase!=='questions')return;
+  if(t.audioElements){const audio=t.audioElements[index];audio.pause();audio.currentTime=0;audio.play().catch(()=>{if(state.listening!==t||t.phase!=='questions')return;t.phase='audio-error';t.audioError='Âm thanh bị chặn hoặc chưa phát được. Bấm thử lại để nghe đủ 15 giây.';renderListeningTest();});const label=$('#listenReplay');if(label)label.textContent=`Lượt đọc ${windowIndex+1}/3`;return;}
   const utterance=new SpeechSynthesisUtterance(t.questions[index].word);utterance.lang='en-US';utterance.rate=.85;
   const voices=window.speechSynthesis.getVoices();const voice=voices.find(v=>/^en-US$/i.test(v.lang))||voices.find(v=>/^en[-_]/i.test(v.lang));if(voice)utterance.voice=voice;
-  utterance.onerror=e=>{if(['interrupted','canceled'].includes(e.error)||state.listening!==t||t.phase!=='questions'||t.index!==index)return;t.phase='audio-error';t.audioError='Chưa phát được âm thanh. Kiểm tra loa và bấm thử lại; câu này sẽ được nghe lại đủ 15 giây.';renderListeningTest();};
+  utterance.onerror=e=>{if(['interrupted','canceled'].includes(e.error)||state.listening!==t||t.phase!=='questions'||t.index!==index)return;t.useRecordedAudio=true;prepareListeningAudio(t);};
   window.speechSynthesis.cancel();window.speechSynthesis.speak(utterance);
   const label=$('#listenReplay');if(label)label.textContent=`Lượt đọc ${windowIndex+1}/3`;
 }
 function tickListeningTest(){
-  const t=state.listening;if(!t?.active||t.phase==='audio-error')return;
+  const t=state.listening;if(!t?.active||['audio-error','audio-preparing','audio-ready'].includes(t.phase))return;
   const clock=listeningClock(t);
   if(clock.phase==='questions'){
     if(t.index!==clock.index){
@@ -271,16 +288,18 @@ function tickListeningTest(){
     return;
   }
   if(clock.phase==='review'){
-    if(t.phase!=='review'){for(let i=Math.max(0,t.index);i<20;i++)t.timedOut[i]=!parseListeningAnswer(t.answers[i]);t.phase='review';window.speechSynthesis.cancel();renderListeningTest();}
+    if(t.phase!=='review'){for(let i=Math.max(0,t.index);i<20;i++)t.timedOut[i]=!parseListeningAnswer(t.answers[i]);t.phase='review';window.speechSynthesis?.cancel();t.audioElements?.forEach(a=>a.pause());renderListeningTest();}
     const timer=$('#listenReviewTimer');if(timer)timer.textContent=clock.seconds+'s';return;
   }
   completeListeningTest(t);
 }
 function renderListeningTest(){
   const t=state.listening;if(!t)return;
+  if(t.phase==='audio-preparing'){viewRoot.innerHTML=`${pageTitle('Chuẩn bị bài nghe','Đồng hồ chưa bắt đầu')}<section class="panel quiz-card"><h2>🎧 Đang tải âm thanh từ từ điển</h2><p id="listenAudioLoading">Chuẩn bị 20 bản ghi âm...</p><p class="muted">Giữ trang mở. Chỉ bắt đầu tính giờ sau khi âm thanh sẵn sàng và bạn bấm bắt đầu.</p></section>`;return;}
+  if(t.phase==='audio-ready'){viewRoot.innerHTML=`${pageTitle('Bài nghe đã sẵn sàng','20 bản ghi âm đã tải xong')}<section class="panel quiz-card"><h2>🎧 Sẵn sàng nghe và viết?</h2><p>Mỗi từ được phát 3 lần tại 0, 5, 10 giây. Hết 15 giây sẽ chuyển câu.</p><button class="btn primary" id="listenAudioBegin">Bắt đầu với âm thanh từ điển →</button></section>`;$('#listenAudioBegin').onclick=()=>{t.startedAt=Date.now()-Math.max(0,t.index)*15000;t.reviewEndsAt=t.startedAt+315000;t.spoken[Math.max(0,t.index)]=0;t.index=Math.max(0,t.index);t.phase='questions';t.timerId=setInterval(tickListeningTest,200);renderListeningTest();tickListeningTest();};return;}
   if(t.phase==='audio-error'){
     viewRoot.innerHTML=`${pageTitle('Kiểm tra nghe','Âm thanh chưa sẵn sàng')}<div class="panel quiz-card"><h2>🔊 Kiểm tra âm thanh</h2><p>${esc(t.audioError)}</p><button class="btn primary" id="retryListenAudio">Thử lại câu này</button></div>`;
-    $('#retryListenAudio').onclick=()=>{t.startedAt=Date.now()-t.index*15000;t.reviewEndsAt=t.startedAt+315000;t.spoken[t.index]=0;t.phase='questions';renderListeningTest();tickListeningTest();};return;
+    $('#retryListenAudio').onclick=()=>{if(t.useRecordedAudio&&!t.audioElements){prepareListeningAudio(t);return;}t.startedAt=Date.now()-Math.max(0,t.index)*15000;t.reviewEndsAt=t.startedAt+315000;t.spoken[t.index]=0;t.phase='questions';renderListeningTest();tickListeningTest();};return;
   }
   if(t.phase==='questions'){
     const clock=listeningClock(t);
@@ -295,14 +314,14 @@ function renderListeningTest(){
   }
   if(t.phase==='grading'){viewRoot.innerHTML=`${pageTitle('Đang chấm bài','Câu trả lời đã được khóa')}<div class="panel quiz-card score-box"><h2>Đang kiểm tra 20 câu...</h2><p>Kết quả sẽ hiện trong tối đa 12 giây.</p></div>`;return;}
   const r=t.result;
-  viewRoot.innerHTML=`${pageTitle('Kết quả kiểm tra nghe','Từ · trọng âm · nghĩa · cú pháp')}<section class="panel quiz-card score-box"><div class="score-number">${r.score}%</div><h2>${r.correct}/20 câu đúng · ${r.passed?'ĐẠT ✓':'CẦN HỌC LẠI'}</h2><p>${r.passed?'Bạn đã đạt mốc 75%. Tiếp tục luyện để nhớ lâu hơn.':'Chưa đạt 75%. Học lại các buổi đã chọn và luyện các từ sai.'}</p><p id="listenSaveStatus" class="muted">${t.saveStatus==='saved'?(t.progressWarning?'Đã lưu điểm; một số tiến độ từ chưa đồng bộ.':'Đã lưu kết quả.'):t.saveStatus==='failed'?'Chưa lưu được lên tài khoản. Kết quả vẫn đang hiển thị ở đây.':'Đang lưu kết quả và cập nhật từ cần ôn...'}</p><div class="flex gap-8" style="justify-content:center"><button class="btn primary" id="listenNewTest">Chọn buổi & làm bài mới</button><button class="btn secondary" id="listenLearnAgain">${r.passed?'Ôn từ sai':'Học lại buổi đã chọn'}</button>${t.saveStatus==='failed'?'<button class="btn secondary" id="listenSaveRetry">Thử lưu lại</button>':''}</div></section><section class="panel section-gap"><div class="panel-title"><h3>Đối chiếu 20 câu</h3><span class="badge">Mỗi câu đúng đủ 3 phần = 5%</span></div><div class="listening-result-list">${r.answers.map((a,i)=>`<article class="listening-result ${a.correct?'correct':'wrong'}"><div><b>${i+1}. ${esc(a.word)}</b><span class="badge">${a.correct?'Đúng ✓':!a.syntax?'Sai cú pháp / để trống':'Chưa đúng'}</span></div><p><b>Bạn điền:</b> ${esc(a.answer||'(chưa điền)')}</p><p><b>Đáp án:</b> ${esc(a.expected)}</p><small>Từ ${a.wordCorrect?'✓':'✗'} · Trọng âm ${a.stressCorrect?'✓':'✗'} · Nghĩa ${a.meaningCorrect?'✓':'✗'} · Cú pháp ${a.syntax?'✓':'✗'}</small></article>`).join('')}</div></section>`;
+  viewRoot.innerHTML=`${pageTitle('Kết quả kiểm tra nghe','Từ · trọng âm · nghĩa · cú pháp')}<section class="panel quiz-card score-box"><div class="score-number">${r.score}%</div><h2>${r.correct}/20 câu đúng · ${r.passed?'ĐẠT ✓':'CẦN HỌC LẠI'}</h2><p>${r.passed?'Bạn đã đạt mốc 75%. Tiếp tục luyện để nhớ lâu hơn.':'Chưa đạt 75%. Học lại các buổi đã chọn và luyện các từ sai.'}</p><p id="listenSaveStatus" class="muted">${t.saveStatus==='saved'?(t.progressWarning?'Đã lưu điểm; một số tiến độ từ chưa đồng bộ.':'Đã lưu kết quả.'):t.saveStatus==='failed'?'Chưa lưu được lên tài khoản. Kết quả vẫn đang hiển thị ở đây.':'Đang lưu kết quả và cập nhật từ cần ôn...'}</p><div class="flex gap-8" style="justify-content:center"><button class="btn primary" id="listenNewTest">Chọn buổi & làm bài mới</button><button class="btn secondary" id="listenLearnAgain">${r.passed?'Ôn từ sai':'Học lại buổi đã chọn'}</button>${t.saveStatus==='failed'?'<button class="btn secondary" id="listenSaveRetry">Thử lưu lại</button>':''}</div></section><section class="panel section-gap"><div class="panel-title"><h3>Đối chiếu 20 câu</h3><span class="badge">Mỗi câu đúng đủ 3 phần = 5%</span></div><div class="listening-result-list">${r.answers.map((a,i)=>`<article class="listening-result ${a.correct?'correct':'wrong'}"><div><b>${i+1}. ${esc(a.word)}</b><span class="badge">${a.correct?'Đúng ✓':!a.syntax?'Sai cú pháp / để trống':'Chưa đúng'}</span></div><p><b>Bạn điền:</b> ${esc(a.answer||'(chưa điền)')}</p><p><b>Đáp án:</b> ${esc(a.expected)}</p><small>Từ ${a.wordCorrect?'✓':'✗'} · Trọng âm ${a.stressCorrect?'✓':'✗'} · Nghĩa ${a.meaningCorrect?'✓':'✗'} · Cú pháp ${a.syntax?'✓':'✗'}</small>${t.questions[i].audioSource?`<p class="muted"><a href="${esc(t.questions[i].audioSource)}" target="_blank" rel="noopener noreferrer">Nguồn âm thanh ↗</a> ${esc(t.questions[i].audioLicense||'')}</p>`:''}</article>`).join('')}</div></section>`;
   $('#listenNewTest').onclick=()=>{state.listening=null;state.test=null;renderTests();};
   $('#listenLearnAgain').onclick=()=>{const selected=t.sessions;state.listening=null;state.session=selected[0]||state.session;navigate(r.passed?'review':'learn');};
   $('#listenSaveRetry')?.addEventListener('click',()=>persistListeningResult(t));
 }
 function completeListeningTest(t){
   if(state.listening!==t||!t.active)return;
-  t.active=false;t.phase='grading';clearInterval(t.timerId);window.speechSynthesis?.cancel();renderListeningTest();
+  t.active=false;t.phase='grading';clearInterval(t.timerId);window.speechSynthesis?.cancel();t.audioElements?.forEach(a=>a.pause());renderListeningTest();
   t.result=gradeListeningAttempt(t);t.phase='result';t.saveStatus='saving';
   state.testResults=[{...t.result,createdAt:Date.now()},...state.testResults.filter(r=>r.attemptId!==t.attemptId)];
   renderListeningTest();persistListeningResult(t);
