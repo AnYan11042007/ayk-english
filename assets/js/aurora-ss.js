@@ -1,3 +1,4 @@
+import { createAnimeFaceTextures } from './anime-face.js?v=face-v28';
 // Original articulated 3D celestial mage. All surfaces are meshes, including the face,
 // layered hair, embroidered gown, crystal wings, staff and dragon familiar.
 export function createAuroraSS(T){
@@ -39,25 +40,30 @@ export function createAuroraSS(T){
  gem(body,0,2.74,.205,.065,violet);star(body,0,2.39,.17,.09);
  const neckRing=ring(body,.094,.009,gold,0,3.055,0);neckRing.rotation.x=Math.PI/2;
  const head=group(body,0,3.38,0);head.name='SculptedAnimeFace';
- const faceGeometry=new T.SphereGeometry(1,32,24),p=faceGeometry.attributes.position;
- for(let i=0;i<p.count;i++){let x=p.getX(i),y=p.getY(i),z=p.getZ(i);const jaw=y<-.1?1-(-y-.1)*.39:1;p.setXYZ(i,x*.32*jaw,y*.405,z*.27*(z>0?1:1.05));}faceGeometry.computeVertexNormals();mesh(head,faceGeometry,skin);
- for(const s of [-1,1])ell(head,s*.3,-.025,0,.043,.073,.03,skin);
- const eyes=[];
- for(const s of [-1,1]){
-  const e=group(head,s*.13,.015,.273);e.rotation.y=s*.12;e.scale.x=.9;eyes.push(e);
-  const shape=new T.Shape();shape.moveTo(-.103,.014);shape.bezierCurveTo(-.065,.09,.055,.089,.103,.025);shape.bezierCurveTo(.064,-.058,-.058,-.058,-.103,.014);
-  mesh(e,new T.ShapeGeometry(shape,12),white);
-  ell(e,0,.005,.008,.053,.066,.013,iris,20);ell(e,0,.005,.022,.024,.051,.008,ink);
-  ell(e,-.018,.035,.029,.018,.021,.006,white,8);ell(e,.019,-.02,.027,.009,.01,.005,cyan,8);
-  curve(e,[[-.103,.014,.012],[-.065,.072,.013],[.03,.078,.013],[.103,.025,.012]],.008,ink);
-  for(let k=0;k<2;k++)rod(e,[s*(.072+k*.011),.05-k*.006,.014],[s*(.12+k*.014),.087-k*.013,.014],.004,ink);
-  curve(head,[[s*.055,.14,.255],[s*.13,.155,.26],[s*.2,.139,.236]],.006,hairShade);
-  ell(head,s*.212,-.115,.221,.055,.015,.004,rose,12);
+ // Continuous cheek/jaw/nose topology: facial details wrap around this surface.
+ const faceGeometry=new T.SphereGeometry(1,64,48),p=faceGeometry.attributes.position,uv=faceGeometry.attributes.uv;
+ const bump=(x,y,cx,cy,rx,ry,h)=>h*Math.exp(-(((x-cx)/rx)**2+((y-cy)/ry)**2));
+ for(let i=0;i<p.count;i++){
+  const sx=p.getX(i),sy=p.getY(i),sz=p.getZ(i),jaw=sy<-.12?1-(-sy-.12)*.30:1;
+  const x=sx*.31*jaw,y=sy*.40;let z=sz*.248;
+  if(sz>0){
+   const weight=Math.min(1,sz*3);
+   z+=weight*(bump(x,y,0,-.05,.033,.105,.014)+bump(x,y,0,-.128,.028,.035,.034)
+     +bump(x,y,0,-.192,.055,.04,.013)+bump(x,y,-.16,-.075,.1,.1,.014)+bump(x,y,.16,-.075,.1,.1,.014)
+     -bump(x,y,-.127,-.008,.08,.045,.010)-bump(x,y,.127,-.008,.08,.045,.010));
+  }
+  p.setXYZ(i,x,y,z);uv.setXY(i,Math.max(0,Math.min(1,x/.62+.5)),Math.max(0,Math.min(1,y/.80+.5)));
  }
- // Separate nose bridge and subtle two-lip smile, rather than a dot face.
- ell(head,0,-.07,.273,.018,.048,.023,skin,12);ell(head,0,-.108,.29,.026,.018,.019,skin,12);
- curve(head,[[-.046,-.207,.23],[0,-.218,.25],[.046,-.202,.23]],.006,lip);
- ell(head,0,-.23,.235,.036,.009,.008,rose,12);
+ faceGeometry.computeVertexNormals();faceGeometry.clearGroups();
+ // Only front-facing head triangles receive the facial texture. No eyes on the back.
+ const index=faceGeometry.index;let groupStart=0,lastMaterial=-1;
+ for(let i=0;i<index.count;i+=3){const front=[0,1,2].every(k=>p.getZ(index.getX(i+k))>=-.002),matIndex=front?1:0;if(matIndex!==lastMaterial){if(lastMaterial>=0)faceGeometry.addGroup(groupStart,i-groupStart,lastMaterial);groupStart=i;lastMaterial=matIndex;}}
+ faceGeometry.addGroup(groupStart,index.count-groupStart,lastMaterial);
+ const faceTextures=createAnimeFaceTextures(T),faceMat=new T.MeshStandardMaterial({color:faceTextures.length?'#ffffff':'#ffe5dc',map:faceTextures[0]||null,roughness:.82,metalness:0});
+ const face=mesh(head,faceGeometry,[skin,faceMat]);face.name='UVSculptedAnimeHead';
+ for(const side of [-1,1])ell(head,side*.294,-.025,-.012,.033,.059,.027,skin);
+ const eyes=[];
+ // Shape and color are in the UV material; no protruding eyeball primitives.
  // Hair cap covers the scalp only; back layers and curved bangs leave the eyes visible.
  const cap=mesh(head,new T.SphereGeometry(1,24,14,0,Math.PI*2,0,1.5),hair);cap.scale.set(.338,.427,.29);cap.position.y=.018;
  const hairBack=ell(head,0,.06,-.12,.335,.35,.21,hairShade,24);
@@ -68,7 +74,7 @@ export function createAuroraSS(T){
   curve(l,[[.005,-.08,.022],[x*.22,-.5,-.065],[x*.43,-1.03,.045],[x*.63,-1.47,.165]],.005,ivory);locks.push(l);
  }
  for(const s of [-1,1]){
-  for(let i=0;i<3;i++)strand(head,[[s*(.02+i*.07),.4,.12],[s*(.1+i*.06),.31,.26],[s*(.11+i*.065),.17,.294],[s*(.16+i*.061),.105,.27]],[.047,.053,.04,.001],i%2?hairShade:hair);
+  for(let i=0;i<4;i++)strand(head,[[s*(.015+i*.055),.397,.08],[s*(.047+i*.047),.32,.225],[s*(.075+i*.051),.22,.263],[s*(.097+i*.054),.128-i*.012,.258]],[.027,.036,.025,.001],i%3?hair:hairShade);
   strand(head,[[s*.285,.25,.14],[s*.33,-.13,.08],[s*.35,-.62,.05],[s*.47,-1.04,.16]],[.067,.085,.053,.001],hair);
   curve(head,[[s*.32,.09,.15],[s*.35,-.08,.08]],.012,gold);gem(head,s*.35,-.115,.08,.052,violet);
  }
@@ -144,7 +150,7 @@ export function createAuroraSS(T){
  function update(action,t,now,quiet){
   const clock=quiet?0:now/1000,w=Math.sin(clock*1.5),active=t<4;
   root.rotation.set(0,.12,0);body.position.y=quiet?0:w*.018;body.rotation.set(0,0,0);head.rotation.set(w*.016,w*.03,w*.018);
-  eyes.forEach(e=>e.scale.y=quiet?1:Math.sin(clock*.75)>.997?.1:1);
+  if(faceTextures.length){const blink=!quiet&&Math.sin(clock*.75)>.997;const expression=blink?2:active&&['happy','heart','wave'].includes(action)?1:active&&action==='cheer'?3:0;faceMat.map=faceTextures[expression];}
   locks.forEach((l,i)=>{l.rotation.z=quiet?0:Math.sin(clock*1.9+i*.45)*.027;l.rotation.x=quiet?0:Math.sin(clock*1.5+i*.3)*.02;});cloth.forEach((l,i)=>l.rotation.x=quiet?0:Math.sin(clock*1.4+i*.4)*.015);
   arms[0].shoulder.rotation.set(0,0,-.22);arms[0].elbow.rotation.set(-.12,0,-.14);arms[1].shoulder.rotation.set(0,0,.22);arms[1].elbow.rotation.set(0,0,.10);
   arms.forEach(a=>a.hand.rotation.set(0,0,0));legs.forEach(l=>l.rotation.set(0,0,0));
@@ -166,5 +172,5 @@ export function createAuroraSS(T){
    if(action==='dragon'){familiar.position.set(Math.cos(t*2)*1.05,3.05+Math.sin(t*2)*.35,Math.sin(t*2)*.8);familiar.rotation.y=-t*2;}
   }
  }
- return {root,update,focus:1.98,distance:8.5,height:4.05};
+ return {root,update,focus:1.98,distance:8.5,height:4.05,portraitFocus:3.35,portraitDistance:2.2,textures:faceTextures};
 }
