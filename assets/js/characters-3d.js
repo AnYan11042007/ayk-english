@@ -1,5 +1,5 @@
-import { createAuroraSS } from './aurora-ss.js?v=face-v30';
-import { createDistinctModel } from './character-models.js?v=face-v30';
+import { createAuroraSS } from './aurora-ss.js?v=face-v31';
+import { createDistinctModel } from './character-models.js?v=face-v31';
 let engine;
 // Project the same meshes on a 2D canvas when a browser disables WebGL.
 function softwareRenderer(T,canvas){
@@ -18,7 +18,7 @@ function softwareRenderer(T,canvas){
   if(Math.abs(det)>.00001){
    const dx1=target[1][0]-target[0][0],dx2=target[2][0]-target[0][0],dy1=target[1][1]-target[0][1],dy2=target[2][1]-target[0][1];
    const a=(dx1*(y2-y0)-dx2*(y1-y0))/det,c=((x1-x0)*dx2-(x2-x0)*dx1)/det,b=(dy1*(y2-y0)-dy2*(y1-y0))/det,d=((x1-x0)*dy2-(x2-x0)*dy1)/det;
-   ctx.save();ctx.clip();ctx.transform(a,b,c,d,target[0][0]-a*x0-c*y0,target[0][1]-b*x0-d*y0);ctx.drawImage(f.texture,0,0);ctx.restore();
+   ctx.save();ctx.beginPath();const center=target.reduce((v,p)=>[v[0]+p[0]/3,v[1]+p[1]/3],[0,0]);target.forEach((p,i)=>{const dx=p[0]-center[0],dy=p[1]-center[1],len=Math.hypot(dx,dy)||1,x=p[0]+dx/len*.65,y=p[1]+dy/len*.65;i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.closePath();ctx.clip();ctx.transform(a,b,c,d,target[0][0]-a*x0-c*y0,target[0][1]-b*x0-d*y0);ctx.drawImage(f.texture,0,0);ctx.restore();
   }else ctx.fill();
  }else{ctx.fill();ctx.strokeStyle=ctx.fillStyle;ctx.lineWidth=.45;ctx.stroke();}}},setAnimationLoop(fn){active=!!fn;cancelAnimationFrame(loop);if(!fn)return;function tick(now){if(!active)return;if(now-last>80){last=now;fn(now);}loop=requestAnimationFrame(tick);}loop=requestAnimationFrame(tick);},dispose(){active=false;cancelAnimationFrame(loop);cache.clear();textureCache.clear();},forceContextLoss(){}};return api;
 }
