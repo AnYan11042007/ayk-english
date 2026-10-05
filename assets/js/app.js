@@ -1,15 +1,15 @@
-import { renderGacha, renderInventory, stopGachaPreview, showCompanion, clearCompanion, reactCompanion } from './gacha-ui.js?v=face-v28';
-import { studySummary, addStudyWord } from './motivation.js?v=face-v28';
-import { animateStudyView, celebrateStudy, setupStudyEffects } from './effects.js?v=face-v28';
-import { RAPID_MODES, createRapidGame, beginRapidQuestion, submitRapidAnswer, advanceRapidGame } from './rapid-games.js?v=face-v28';
+import { renderGacha, renderInventory, stopGachaPreview, showCompanion, clearCompanion, reactCompanion } from './gacha-ui.js?v=face-v29';
+import { studySummary, addStudyWord } from './motivation.js?v=face-v29';
+import { animateStudyView, celebrateStudy, setupStudyEffects } from './effects.js?v=face-v29';
+import { RAPID_MODES, createRapidGame, beginRapidQuestion, submitRapidAnswer, advanceRapidGame } from './rapid-games.js?v=face-v29';
 import {defaultCategories, buildLessons, categoryForWord} from './curriculum.js';
 import { firebaseReady, auth, fAuth } from './firebase.js';
 import { firebaseConfig, isFirebaseConfigured } from './firebase-config.js';
-import * as store from './store.js?v=face-v28';
-import { aiLookup, searchCommonsImages, normalizeVocabularyInput, googleTranslateUrl, cambridgeDictionaryUrl } from './ai.js?v=face-v28';
-import { POS_TYPES, vocabularyParts, vocabularyPosLabel } from './vocabulary.js?v=face-v28';
-import { lookupPronunciationAudio, loadPronunciationElement } from './pronunciation-audio.js?v=face-v28';
-import { LISTENING_RULES, getWordStress, pronunciationStress, listeningAnswerFields, listeningPool, createListeningAttempt, listeningClock, parseListeningAnswer, gradeListeningAttempt } from './listening-test.js?v=face-v28';
+import * as store from './store.js?v=face-v29';
+import { aiLookup, searchCommonsImages, normalizeVocabularyInput, googleTranslateUrl, cambridgeDictionaryUrl } from './ai.js?v=face-v29';
+import { POS_TYPES, vocabularyParts, vocabularyPosLabel } from './vocabulary.js?v=face-v29';
+import { lookupPronunciationAudio, loadPronunciationElement } from './pronunciation-audio.js?v=face-v29';
+import { LISTENING_RULES, getWordStress, pronunciationStress, listeningAnswerFields, listeningPool, createListeningAttempt, listeningClock, parseListeningAnswer, gradeListeningAttempt } from './listening-test.js?v=face-v29';
 
 const $ = (s,root=document)=>root.querySelector(s);
 const $$ = (s,root=document)=>[...root.querySelectorAll(s)];

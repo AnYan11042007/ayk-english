@@ -44,7 +44,7 @@ export function createAnimeFaceTextures(T){
   ctx.fillStyle='#d88f9c';ctx.beginPath();ctx.moveTo(.5-half,mouthY);ctx.quadraticCurveTo(.482,mouthY-.012,.5,mouthY-.006);ctx.quadraticCurveTo(.52,mouthY-.015,.5+half,mouthY-.006);ctx.quadraticCurveTo(.505,mouthY+(smiling?.027:.009),.5-half,mouthY);ctx.fill();
   ctx.strokeStyle='#b16d81';ctx.lineWidth=.0025;ctx.beginPath();ctx.moveTo(.5-half,mouthY);ctx.quadraticCurveTo(.5,mouthY+(smiling?.022:.005),.5+half,mouthY-.006);ctx.stroke();
   ctx.strokeStyle='rgba(255,229,223,.85)';ctx.lineWidth=.003;ctx.beginPath();ctx.moveTo(.48,mouthY+.014);ctx.quadraticCurveTo(.5,mouthY+.02,.524,mouthY+.011);ctx.stroke();
-  const tex=new T.CanvasTexture(canvas);tex.encoding=T.sRGBEncoding;tex.anisotropy=4;tex.userData.expression=expression;textures.push(tex);
+  const tex=new T.CanvasTexture(canvas);tex.encoding=T.sRGBEncoding;tex.anisotropy=4;tex.userData={expression};textures.push(tex);
  }
  return textures;
 }

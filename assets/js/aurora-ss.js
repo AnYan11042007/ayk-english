@@ -1,4 +1,4 @@
-import { createAnimeFaceTextures } from './anime-face.js?v=face-v28';
+import { createAnimeFaceTextures } from './anime-face.js?v=face-v29';
 // Original articulated 3D celestial mage. All surfaces are meshes, including the face,
 // layered hair, embroidered gown, crystal wings, staff and dragon familiar.
 export function createAuroraSS(T){

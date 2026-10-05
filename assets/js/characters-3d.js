@@ -1,5 +1,5 @@
-import { createAuroraSS } from './aurora-ss.js?v=face-v28';
-import { createDistinctModel } from './character-models.js?v=face-v28';
+import { createAuroraSS } from './aurora-ss.js?v=face-v29';
+import { createDistinctModel } from './character-models.js?v=face-v29';
 let engine;
 // Project the same meshes on a 2D canvas when a browser disables WebGL.
 function softwareRenderer(T,canvas){
