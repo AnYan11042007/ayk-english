@@ -1,4 +1,4 @@
-import { createAnimeFaceTextures } from './anime-face.js?v=face-v29';
+import { createAnimeFaceTextures } from './anime-face.js?v=face-v30';
 // Original articulated 3D celestial mage. All surfaces are meshes, including the face,
 // layered hair, embroidered gown, crystal wings, staff and dragon familiar.
 export function createAuroraSS(T){
@@ -65,7 +65,7 @@ export function createAuroraSS(T){
  const eyes=[];
  // Shape and color are in the UV material; no protruding eyeball primitives.
  // Hair cap covers the scalp only; back layers and curved bangs leave the eyes visible.
- const cap=mesh(head,new T.SphereGeometry(1,24,14,0,Math.PI*2,0,1.5),hair);cap.scale.set(.338,.427,.29);cap.position.y=.018;
+ const cap=mesh(head,new T.SphereGeometry(1,24,14,0,Math.PI*2,0,1.15),hair);cap.scale.set(.338,.427,.29);cap.position.y=.018;
  const hairBack=ell(head,0,.06,-.12,.335,.35,.21,hairShade,24);
  const locks=[];
  for(let i=0;i<12;i++){
@@ -116,7 +116,7 @@ export function createAuroraSS(T){
   curve(hand,[[s*.037,-.018,.005],[s*.068,-.061,.015],[s*.058,-.081,.034]],.012,skin);
   arms.push({shoulder,elbow,hand});
  }
- const staff=group(arms[0].hand,-.02,-.08,.055);staff.name='OrbitingCrystalStaff';
+ const staff=group(arms[0].hand,-.14,-.08,.055);staff.name='OrbitingCrystalStaff';staff.rotation.z=.38;
  rod(staff,[0,-1.32,0],[0,1.03,0],.015,gold);rod(staff,[0,-.82,0],[0,.72,0],.025,navy);
  const crystal=gem(staff,0,1.19,0,.16,violet);crystal.scale.y=1.5;
  const staffRings=[];for(let i=0;i<3;i++){const r=ring(staff,.23+i*.025,.009,gold,0,1.19,0);r.rotation.set(i*.8,.5+i*.7,.3);staffRings.push(r);}star(staff,0,1.55,0,.068);
@@ -172,5 +172,5 @@ export function createAuroraSS(T){
    if(action==='dragon'){familiar.position.set(Math.cos(t*2)*1.05,3.05+Math.sin(t*2)*.35,Math.sin(t*2)*.8);familiar.rotation.y=-t*2;}
   }
  }
- return {root,update,focus:1.98,distance:8.5,height:4.05,portraitFocus:3.35,portraitDistance:2.2,textures:faceTextures};
+ return {root,update,focus:1.98,distance:8.5,height:4.05,portraitFocus:3.44,portraitDistance:2.45,textures:faceTextures};
 }
