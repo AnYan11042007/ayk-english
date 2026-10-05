@@ -1,3 +1,4 @@
+import { createConan3D } from './conan-3d.js?v=conan-v32';
 import { createAuroraSS } from './aurora-ss.js?v=face-v31';
 import { createDistinctModel } from './character-models.js?v=face-v31';
 let engine;
@@ -32,8 +33,8 @@ export async function mountCharacter(container,character){
  scene.add(new T.HemisphereLight(0xeeefff,0x5f437f,1.3));const light=new T.DirectionalLight(0xfff0df,1.5);light.position.set(-3,5,4);scene.add(light);const rim=new T.DirectionalLight(0xaabaff,1.5);rim.position.set(3,3,-3);scene.add(rim);
  const material=color=>new T.MeshStandardMaterial({color,roughness:.3,metalness:.17});const main=material(character.color),white=material('#eee5fc'),dark=material('#26223c'),glow=new T.MeshStandardMaterial({color:character.color,emissive:character.color,emissiveIntensity:.7}),pink=material('#f3a5c8');
  const bot=new T.Group();scene.add(bot);const sphere=(parent,x,y,z,sx,sy,sz,mat)=>{const o=new T.Mesh(new T.SphereGeometry(1,Math.max(sx,sy,sz)<.1?8:24,Math.max(sx,sy,sz)<.1?6:16),mat);o.position.set(x,y,z);o.scale.set(sx,sy,sz);parent.add(o);return o;};
- if(['dragon','angel'].includes(character.kind)){
-  scene.remove(bot);const model=character.kind==='angel'?createAuroraSS(T):createDistinctModel(T,character);
+ if(['dragon','angel','conan'].includes(character.kind)){
+  scene.remove(bot);const model=character.kind==='conan'?createConan3D(T):character.kind==='angel'?createAuroraSS(T):createDistinctModel(T,character);
   const pivot=new T.Group();pivot.add(model.root);scene.add(pivot);let action='wave',started=performance.now(),disposed=false,angle=0,zoom=1,drag=null,portrait=false;
   const focus=model.focus||1.4,baseDistance=model.distance||6.8;
   const resize=()=>{const w=container.clientWidth||220,h=container.clientHeight||240;renderer.setSize(w,h,false);camera.aspect=w/h;const target=portrait?(model.portraitFocus||focus):focus,dist=portrait?(model.portraitDistance||baseDistance):baseDistance;camera.position.set(0,target+(portrait?.08:.35),(w/h<.95?dist*1.15:dist)/zoom);camera.lookAt(0,target,0);camera.updateProjectionMatrix();};
@@ -54,7 +55,7 @@ export async function mountCharacter(container,character){
  const ears=[];if(['cat','fox','rabbit'].includes(character.kind))[-1,1].forEach(s=>{const ear=new T.Mesh(character.kind==='rabbit'?new T.SphereGeometry(1,16,12):new T.ConeGeometry(.2,.45,3),main);ear.position.set(s*.35,.52,0);if(character.kind==='rabbit')ear.scale.set(.14,.45,.13);ear.rotation.z=-s*.2;head.add(ear);ears.push(ear);});
  if(character.kind==='robot'){sphere(head,0,.68,0,.07,.13,.07,glow);[-1,1].forEach(s=>sphere(head,s*.66,0,0,.1,.16,.17,white));}
  const tail=['cat','fox','dragon'].includes(character.kind)?sphere(bot,.48,.85,-.3,.17,.53,.18,main):null;if(tail)tail.rotation.z=-.7;
- const wings=[];if(['dragon','angel'].includes(character.kind))[-1,1].forEach(s=>{const wing=new T.Group();wing.position.set(s*.35,1.3,-.25);bot.add(wing);for(let i=0;i<4;i++){const feather=sphere(wing,s*(.23+i*.16),.15+i*.08,0,.15,.42-i*.05,.065,character.kind==='angel'?white:main);feather.rotation.z=-s*.65;}wings.push(wing);});
+ const wings=[];if(['dragon','angel','conan'].includes(character.kind))[-1,1].forEach(s=>{const wing=new T.Group();wing.position.set(s*.35,1.3,-.25);bot.add(wing);for(let i=0;i<4;i++){const feather=sphere(wing,s*(.23+i*.16),.15+i*.08,0,.15,.42-i*.05,.065,character.kind==='angel'?white:main);feather.rotation.z=-s*.65;}wings.push(wing);});
  const level=['C','B','A','S','SS'].indexOf(character.rank);let halo;if(level>=2){halo=new T.Mesh(new T.TorusGeometry(.46,.025,8,48),glow);halo.position.set(0,2.65,0);halo.rotation.x=Math.PI/2;bot.add(halo);}
  if(level===4){[-1,0,1].forEach(s=>{const crown=new T.Mesh(new T.ConeGeometry(.095,.3,5),glow);crown.position.set(s*.2,2.46,.05);bot.add(crown);});}
 
